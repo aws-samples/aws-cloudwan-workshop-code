@@ -1,0 +1,111 @@
+{
+  "core-network-configuration": {
+    "vpn-ecmp-support": false,
+    "asn-ranges": [
+      "64512-65534"
+    ],
+    "edge-locations": [
+      {
+        "location": "us-east-1"
+      },
+      {
+        "location": "eu-west-1"
+      }
+    ]
+  },
+  "version": "2021.12",
+  "attachment-policies": [
+    {
+      "rule-number": 100,
+      "action": {
+        "association-method": "constant",
+        "segment": "prod"
+      },
+      "conditions": [
+        {
+          "type": "tag-exists",
+          "key": "prod"
+        }
+      ]
+    },
+    {
+      "rule-number": 200,
+      "action": {
+        "association-method": "constant",
+        "segment": "nonprod"
+      },
+      "conditions": [
+        {
+          "type": "tag-exists",
+          "key": "nonprod"
+        }
+      ]
+    },
+    {
+      "rule-number": 300,
+      "action": {
+        "association-method": "constant",
+        "segment": "sharedservices"
+      },
+      "conditions": [
+        {
+          "type": "tag-exists",
+          "key": "sharedservices"
+        }
+      ]
+    }
+  ],
+  "segments": [
+    {
+      "isolate-attachments": true,
+      "name": "prod",
+      "require-attachment-acceptance": false,
+      "edge-locations": [
+        "eu-west-1",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "nonprod",
+      "require-attachment-acceptance": false,
+      "edge-locations": [
+        "eu-west-1",
+        "us-east-1"
+      ]
+    },
+    {
+      "name": "sharedservices",
+      "require-attachment-acceptance": false
+    }
+  ],
+  "segment-actions": [
+    {
+      "mode": "attachment-route",
+      "segment": "sharedservices",
+      "action": "share",
+      "share-with": "*"
+    },
+    {
+      "action": "create-route",
+      "destination-cidr-blocks": [
+        "0.0.0.0/0"
+      ],
+      "segment": "prod",
+      "destinations": [
+        "attachment-053dbd6fb637d9cac",
+        "attachment-027ee477c809c9ab4"
+      ]
+    },
+    {
+      "action": "create-route",
+      "destination-cidr-blocks": [
+        "0.0.0.0/0"
+      ],
+      "segment": "nonprod",
+      "destinations": [
+        "attachment-053dbd6fb637d9cac",
+        "attachment-027ee477c809c9ab4"
+      ]
+    }
+  ]
+}

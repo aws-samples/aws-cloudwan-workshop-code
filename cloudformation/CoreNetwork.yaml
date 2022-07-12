@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: CloudWAN Workshop core network
+
+Resources:
+  GlobalNetwork:
+    Type: AWS::NetworkManager::GlobalNetwork
+    Properties:
+      Description: Cloudwan Cloudformation Demo
+      Tags:
+        - Key: Env
+          Value: Workshop
+        - Key: Name
+          Value: Workshop-Global-Net
+
+  CoreNetwork:
+    Type: AWS::NetworkManager::CoreNetwork
+    Metadata:
+      cfn-lint:
+        config:
+          ignore_checks:
+            - E3002
+    Properties:
+      GlobalNetworkId: !Ref GlobalNetwork
+      PolicyDocument:
+        {
+          version: 2021.12,
+          core-network-configuration:
+            {
+              vpn-ecmp-support: false,
+              asn-ranges: [65501-65505],
+              edge-locations:
+                [
+                  { location: us-east-1 },
+                  { location: eu-west-1 },
+                  { location: us-west-1 },
+                ],
+            },
+          segments:
+            [
+              { name: prod, require-attachment-acceptance: false },
+              { name: nonprod, require-attachment-acceptance: false },
+              { name: sharedservices, require-attachment-acceptance: false },
+            ],
+          attachment-policies:
+            [
+              {
+                rule-number: 100,
+                conditions: [{ type: tag-exists, key: prod }],
+                action: { association-method: constant, segment: prod },
+              },
+              {
+                rule-number: 200,
+                conditions: [{ type: tag-exists, key: nonprod }],
+                action: { association-method: constant, segment: nonprod },
+              },
+              {
+                rule-number: 300,
+                conditions: [{ type: tag-exists, key: sharedservices }],
+                action:
+                  { association-method: constant, segment: sharedservices },
+              },
+            ],
+        }
+
+
+Outputs:
+  CoreNetworkId:
+    Value: !Ref CoreNetwork
+    Description: Core Network Id
+  CoreNetworkArn:
+    Value: !GetAtt CoreNetwork.CoreNetworkArn
+    Description: Core Network ARN

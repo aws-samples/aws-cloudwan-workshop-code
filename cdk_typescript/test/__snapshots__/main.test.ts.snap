@@ -1,0 +1,120 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Snapshot 1`] = `
+Object {
+  "Parameters": Object {
+    "BootstrapVersion": Object {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": Object {
+    "GlobalNet": Object {
+      "Properties": Object {
+        "Description": "Sample Global Net",
+        "Tags": Array [
+          Object {
+            "Key": "Env",
+            "Value": "\\"Workshop",
+          },
+        ],
+      },
+      "Type": "AWS::NetworkManager::GlobalNetwork",
+    },
+    "NonProdNet": Object {
+      "Properties": Object {
+        "Description": "Non-Production network",
+        "GlobalNetworkId": Object {
+          "Fn::GetAtt": Array [
+            "GlobalNet",
+            "Id",
+          ],
+        },
+        "Tags": Array [
+          Object {
+            "Key": "Env",
+            "Value": "Workshop",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "NonProdNet",
+          },
+        ],
+      },
+      "Type": "AWS::NetworkManager::CoreNetwork",
+    },
+    "ProdNet": Object {
+      "Properties": Object {
+        "Description": "Production network",
+        "GlobalNetworkId": Object {
+          "Fn::GetAtt": Array [
+            "GlobalNet",
+            "Id",
+          ],
+        },
+        "Tags": Array [
+          Object {
+            "Key": "Env",
+            "Value": "Workshop",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "ProdNet",
+          },
+        ],
+      },
+      "Type": "AWS::NetworkManager::CoreNetwork",
+    },
+    "SharedSrvNet": Object {
+      "Properties": Object {
+        "Description": "Shared service network",
+        "GlobalNetworkId": Object {
+          "Fn::GetAtt": Array [
+            "GlobalNet",
+            "Id",
+          ],
+        },
+        "Tags": Array [
+          Object {
+            "Key": "Env",
+            "Value": "Workshop",
+          },
+          Object {
+            "Key": "Name",
+            "Value": "SharedServicesNet",
+          },
+        ],
+      },
+      "Type": "AWS::NetworkManager::CoreNetwork",
+    },
+  },
+  "Rules": Object {
+    "CheckBootstrapVersion": Object {
+      "Assertions": Array [
+        Object {
+          "Assert": Object {
+            "Fn::Not": Array [
+              Object {
+                "Fn::Contains": Array [
+                  Array [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  Object {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;

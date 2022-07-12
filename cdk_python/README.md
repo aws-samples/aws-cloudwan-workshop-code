@@ -32,7 +32,7 @@ This sample project is meant to be deployed to a single account and multiple reg
 
 Run `./deploy.sh`
 
-## Manual deployment
+### Manual deployment
 
 1. Deploy the CDK app: `cdk deploy --all`
 2. The Cloud WAN stack will first deploy with an initial policy document. It will have all required configuration except routes towards egress, which cannot be generated in the first deployment due to a circular dependency. To create the routes, run the `update-policy-file.py` Python script, which will use the AWS APIs to find the required values and update the policy document, writing it to a new file.

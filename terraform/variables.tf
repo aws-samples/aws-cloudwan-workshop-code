@@ -3,115 +3,97 @@
 
 # --- root/variables.tf ---
 
-variable "project" {
+# Project identifier
+variable "project_identifier" {
   type        = string
-  description = "Project Name"
+  description = "Project Identifier."
 
-  default     = "CloudWAN_Workshop"
+  default = "CloudWAN_Workshop"
 }
 
-variable "singapore_vpcs" {
-  type        = any
-  description = "VPCs information that will be deployed in ap-southeast-1 region"
+# AWS Regions to use in this example
+variable "aws_regions" {
+  type        = map(string)
+  description = "AWS regions to spin up resources."
+
   default = {
-    "nonprod-vpc" = {
-      type            = "non-prod"
-      name            = "nonprod-vpc"
-      cidr_block      = "10.11.0.0/16"
-      private_subnets = ["10.11.0.0/24", "10.11.2.0/24"]
+    north_virginia = "us-east-1"
+    ireland        = "eu-west-1"
+  }
+}
+
+# Definition of the VPCs to create in N. Virginia Region
+variable "nvirginia_spoke_vpcs" {
+  type        = any
+  description = "Information about the VPCs to create in us-east-1."
+
+  default = {
+    "non-prod" = {
+      type                 = "nonprod"
+      name                 = "non-prod-us-east-1"
+      number_azs           = 2
+      cidr_block           = "10.11.0.0/16"
+      private_subnet_cidrs = ["10.11.0.0/24", "10.11.2.0/24"]
+      instance_type        = "t3.nano"
     }
-    "prod-vpc" = {
-      type            = "prod"
-      name            = "prod-vpc"
-      cidr_block      = "10.10.0.0/16"
-      private_subnets = ["10.10.1.0/24", "10.10.2.0/24"]
-    }
-    "egress-vpc" = {
-      type            = "prod"
-      name            = "egress-vpc"
-      cidr_block      = "100.64.0.0/16"
-      private_subnets = ["100.64.0.0/24", "100.64.2.0/24"]
+    "prod" = {
+      type                 = "prod"
+      name                 = "prod-us-east-1"
+      number_azs           = 2
+      cidr_block           = "10.10.0.0/16"
+      private_subnet_cidrs = ["10.10.1.0/24", "10.10.2.0/24"]
+      instance_type        = "t3.nano"
     }
   }
 }
-variable "singapore_public_subnets_info" {
+
+variable "nvirginia_inspection_vpc" {
   type        = any
-  description = "Public Subnets information to be deployed in ap-southeast-1 region"
-  default = [
-    {
-      cidr_block        = "100.64.1.0/24",
-      availability_zone = "ap-southeast-1a"
-    },
-    {
-      cidr_block        = "100.64.3.0/24",
-      availability_zone = "ap-southeast-1b"
-    }
-  ]
-}
-variable "sydney_vpcs" {
-  type        = any
-  description = "VPCs information that will be deployed in ap-southeast-2 region"
+  description = "Information about the Inspection VPC to create in us-east-1."
+
   default = {
-    "nonprod-vpc" = {
-      type            = "non-prod"
-      name            = "nonprod-vpc"
-      cidr_block      = "10.1.0.0/16"
-      private_subnets = ["10.1.0.0/24", "10.1.2.0/24"]
+    name                    = "inspection-us-east-1"
+    cidr_block              = "100.64.0.0/16"
+    number_azs              = 2
+    public_subnet_cidrs     = ["100.64.1.0/24", "100.64.3.0/24"]
+    inspection_subnet_cidrs = ["100.64.0.0/24", "100.64.2.0/24"]
+  }
+}
+
+# Definition of the VPCs to create in Ireland Region
+variable "ireland_spoke_vpcs" {
+  type        = any
+  description = "Information about the VPCs to create in eu-west-1."
+
+  default = {
+    "non-prod" = {
+      type                 = "nonprod"
+      name                 = "non-prod-eu-west-1"
+      number_azs           = 2
+      cidr_block           = "10.1.0.0/16"
+      private_subnet_cidrs = ["10.1.0.0/24", "10.1.2.0/24"]
+      instance_type        = "t3.nano"
     }
-    "prod-vpc" = {
-      type            = "prod"
-      name            = "prod-vpc"
-      cidr_block      = "10.0.0.0/16"
-      private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-    }
-    "egress-vpc" = {
-      type            = "prod"
-      name            = "egress-vpc"
-      cidr_block      = "100.64.0.0/16"
-      private_subnets = ["100.64.0.0/24", "100.64.2.0/24"]
+    "prod" = {
+      type                 = "prod"
+      name                 = "prod-eu-west-1"
+      number_azs           = 2
+      cidr_block           = "10.0.0.0/16"
+      private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
+      instance_type        = "t3.nano"
     }
   }
 }
-variable "sydney_public_subnets_info" {
+
+variable "ireland_inspection_vpc" {
   type        = any
-  description = "Public Subnets information to be deployed in ap-southeast-2 region"
-  default = [
-    {
-      cidr_block        = "100.64.1.0/24",
-      availability_zone = "ap-southeast-2a"
-    },
-    {
-      cidr_block        = "100.64.3.0/24",
-      availability_zone = "ap-southeast-2b"
-    }
-  ]
-}
-variable "ec2_instance_type" {
-  default     = "t3.nano"
-  description = "EC2 instance type for the test nodes"
-}
-variable "number_azs" {
-  type        = number
-  description = "Number of Availability Zones to use."
-  default     = 2
-}
-variable "aws_singapore_region" {
-  type        = string
-  description = "Singapore region code"
-  default     = "ap-southeast-1"
-}
-variable "aws_sydney_region" {
-  type        = string
-  description = "Sydney region code"
-  default     = "ap-southeast-2"
-}
-variable "deploy_singapore_region" {
-  type        = string
-  description = "Singapore region"
-  default     = "singapore"
-}
-variable "deploy_sydney_region" {
-  type        = string
-  description = "Sydney region"
-  default     = "sydney"
+  description = "Information about the Inspection VPC to create in eu-west-1."
+
+  default = {
+    name                    = "inspection-eu-west-1"
+    cidr_block              = "100.64.0.0/16"
+    number_azs              = 2
+    public_subnet_cidrs     = ["100.64.1.0/24", "100.64.3.0/24"]
+    inspection_subnet_cidrs = ["100.64.0.0/24", "100.64.2.0/24"]
+  }
 }

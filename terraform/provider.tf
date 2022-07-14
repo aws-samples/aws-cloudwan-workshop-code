@@ -3,40 +3,6 @@
 
 # --- root/provider.tf ---
 
-provider "aws" {
-  region = "ap-southeast-1"
-  alias  = "apse1"
-
-  default_tags {
-    tags = {
-      Project   = "Cloud WAN Workshop"
-      Terraform = "Managed"
-    }
-  }
-}
-
-provider "aws" {
-  region = "ap-southeast-2"
-  alias  = "apse2"
-
-  default_tags {
-    tags = {
-      Project   = "Cloud WAN Workshop"
-      Terraform = "Managed"
-    }
-  }
-}
-
-provider "awscc" {
-  region = "ap-southeast-1"
-  alias  = "awsccapse1"
-}
-
-provider "awscc" {
-  region = "ap-southeast-2"
-  alias  = "awsccapse2"
-}
-
 terraform {
   required_version = ">= 0.15.3"
   required_providers {
@@ -49,4 +15,40 @@ terraform {
       version = ">= 0.25.0"
     }
   }
+}
+
+# Provider definitios for N. Virginia Region
+provider "aws" {
+  region = var.aws_regions.north_virginia
+  alias  = "awsnvirginia"
+
+  default_tags {
+    tags = {
+      Project   = "Cloud WAN Workshop"
+      Terraform = "Managed"
+    }
+  }
+}
+
+provider "awscc" {
+  region = var.aws_regions.north_virginia
+  alias  = "awsccnvirginia"
+}
+
+# Provider definitios for Ireland Region
+provider "aws" {
+  region = var.aws_regions.ireland
+  alias  = "awsireland"
+
+  default_tags {
+    tags = {
+      Project   = "Cloud WAN Workshop"
+      Terraform = "Managed"
+    }
+  }
+}
+
+provider "awscc" {
+  region = var.aws_regions.ireland
+  alias  = "awsccireland"
 }

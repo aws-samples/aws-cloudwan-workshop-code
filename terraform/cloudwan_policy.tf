@@ -1,20 +1,19 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-# --- root/data.tf ---
+# --- root/cloudwan_policy.tf ---
 
+# AWS Cloud WAN Core Network Policy
 data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
-  #Core Network Policy
-  #This has to be updated for future changes, if any
   core_network_configuration {
     vpn_ecmp_support = false
     asn_ranges       = ["64512-64555"]
     edge_locations {
-      location = "ap-southeast-1"
+      location = "us-east-1"
       asn      = 64512
     }
     edge_locations {
-      location = "ap-southeast-2"
+      location = "eu-west-1"
       asn      = 64513
     }
   }
@@ -32,7 +31,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
 
   segments {
     name                          = "nonprod"
-    description                   = "Segment for nonprod services"
+    description                   = "Segment for non-prod services"
     require_attachment_acceptance = false
   }
 
@@ -92,7 +91,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
     rule_number = 300
     conditions {
       type = "tag-exists"
-      key  = "shared"
+      key  = "inspection"
     }
     action {
       association_method = "constant"

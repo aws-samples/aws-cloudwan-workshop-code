@@ -1,6 +1,21 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: CloudWAN Workshop core network
+Description: CloudWAN Workshop test network
+Parameters:
+  UseInitialPolicy:
+    Type: String
+    Default: "Yes"
+    AllowedValues: ["Yes", "No"]
+  FirewallAttachmentIdEU:
+    Type: String
+    Default: ""
+  FirewallAttachmentIdUS:
+    Type: String
+    Default: ""
+
+Conditions:
+  UseInitialPolicy:
+    !Equals [!Ref UseInitialPolicy, "Yes"]
 
 Resources:
   GlobalNetwork:
@@ -23,50 +38,130 @@ Resources:
     Properties:
       GlobalNetworkId: !Ref GlobalNetwork
       PolicyDocument:
-        {
-          version: 2021.12,
-          core-network-configuration:
-            {
-              vpn-ecmp-support: false,
-              asn-ranges: [65501-65505],
+        !If
+          - UseInitialPolicy
+          -
+            version: "2021.12"
+            core-network-configuration:
+              vpn-ecmp-support: false
+              asn-ranges:
+                - 64512-65535
               edge-locations:
-                [
-                  { location: us-east-1 },
-                  { location: eu-west-1 },
-                  { location: us-west-1 },
-                ],
-            },
-          segments:
-            [
-              { name: prod, require-attachment-acceptance: false },
-              { name: nonprod, require-attachment-acceptance: false },
-              { name: sharedservices, require-attachment-acceptance: false },
-            ],
-          attachment-policies:
-            [
-              {
-                rule-number: 100,
-                conditions: [{ type: tag-exists, key: prod }],
-                action: { association-method: constant, segment: prod },
-              },
-              {
-                rule-number: 200,
-                conditions: [{ type: tag-exists, key: nonprod }],
-                action: { association-method: constant, segment: nonprod },
-              },
-              {
-                rule-number: 300,
-                conditions: [{ type: tag-exists, key: sharedservices }],
+                - location: eu-west-1
+                - location: us-east-1
+            segments:
+              - name: prod
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+              - name: nonprod
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+              - name: sharedservices
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+            segment-actions:
+              - action: share
+                mode: attachment-route
+                segment: sharedservices
+                share-with: "*"
+            attachment-policies:
+              - rule-number: 100
+                conditions:
+                  - type: tag-exists
+                    key: prod
                 action:
-                  { association-method: constant, segment: sharedservices },
-              },
-            ],
-        }
-
+                  association-method: constant
+                  segment: prod
+              - rule-number: 200
+                conditions:
+                  - type: tag-exists
+                    key: nonprod
+                action:
+                  association-method: constant
+                  segment: nonprod
+              - rule-number: 300
+                conditions:
+                  - type: tag-exists
+                    key: sharedservices
+                action:
+                  association-method: constant
+                  segment: sharedservices
+          -
+            version: "2021.12"
+            core-network-configuration:
+              vpn-ecmp-support: false
+              asn-ranges:
+                - 64512-65535
+              edge-locations:
+                - location: eu-west-1
+                - location: us-east-1
+            segments:
+              - name: prod
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+              - name: nonprod
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+              - name: sharedservices
+                require-attachment-acceptance: false
+                edge-locations:
+                  - eu-west-1
+                  - us-east-1
+            segment-actions:
+              - action: share
+                mode: attachment-route
+                segment: sharedservices
+                share-with: "*"
+              - action: create-route
+                destination-cidr-blocks:
+                 - "0.0.0.0/0"
+                segment: prod
+                destinations:
+                  - !Ref FirewallAttachmentIdEU
+                  - !Ref FirewallAttachmentIdUS
+              - action: create-route
+                destination-cidr-blocks:
+                 - "0.0.0.0/0"
+                segment: nonprod
+                destinations:
+                  - !Ref FirewallAttachmentIdEU
+                  - !Ref FirewallAttachmentIdUS
+            attachment-policies:
+              - rule-number: 100
+                conditions:
+                  - type: tag-exists
+                    key: prod
+                action:
+                  association-method: constant
+                  segment: prod
+              - rule-number: 200
+                conditions:
+                  - type: tag-exists
+                    key: nonprod
+                action:
+                  association-method: constant
+                  segment: nonprod
+              - rule-number: 300
+                conditions:
+                  - type: tag-exists
+                    key: sharedservices
+                action:
+                  association-method: constant
+                  segment: sharedservices
 
 Outputs:
   CoreNetworkId:
-    Value: !Ref CoreNetwork
+    Value: !GetAtt CoreNetwork.CoreNetworkId
     Description: Core Network Id
   CoreNetworkArn:
     Value: !GetAtt CoreNetwork.CoreNetworkArn

@@ -10,4 +10,9 @@ This repository shows you an example in AWS CloudFormation of global communicati
 
 ## Deployment instructions
 
-Currently, the CloudFormation example consists on a single file: *CoreNetwork.yaml*. This file only deploys the Global Network and Core Network (with the same policy is used in other examples). We are currently working in providing the full architecture, so stay tuned!
+This sample project is meant to be deployed to a single account and multiple regions. By default, AWS regions **us-east-1** and **eu-west-1** are in use.
+
+* `make deploy` will deploy all three stacks (core network, us-east-1 VPC, eu-west-1 VPC)
+* `make undeploy` will delete all three stacks
+* If you make updates to the environment, you can run `make deploy` again safely to update
+* To deploy or undeploy an individual stack, use the targets `deploy-core`, `deploy-virginia` and `deploy-ireland` (and `undeploy-` for each too)

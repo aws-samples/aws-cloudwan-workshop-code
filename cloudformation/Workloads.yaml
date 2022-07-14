@@ -1,0 +1,635 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: This file creates production and non-production VPCs in the region and attaches them to the CloudWAN network
+
+Parameters:
+  LatestAmiId:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+  CloudWANID:
+    Type: String
+    Description: ID of CloudWAN instance
+  CloudWANARN:
+    Type: String
+    Description: ARN of CloudWAN instance
+
+Mappings:
+  RegionMap:
+    us-east-1:
+      prod: 10.0.0.0/16
+      nonprod: 10.1.0.0/16
+    eu-west-1:
+      prod: 10.10.0.0/16
+      nonprod: 10.11.0.0/16
+
+Resources:
+
+# Production VPC
+
+  VPCProd:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: VPC Flow Logs not required for workshop
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap
+        - RegionMap
+        - !Ref "AWS::Region"
+        - prod
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "vpc"
+
+  VPCProdSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [0, !Cidr [!GetAtt VPCProd.CidrBlock, 1, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "prod-subnet-1"
+
+  VPCProdSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [1, !Cidr [!GetAtt VPCProd.CidrBlock, 2, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "prod-subnet-2"
+
+# Non-Production VPC
+
+  VPCNonProd:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: VPC Flow Logs not required for workshop
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap
+        - RegionMap
+        - !Ref "AWS::Region"
+        - nonprod
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "vpc"
+
+  VPCNonprodSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [0, !Cidr [!GetAtt VPCNonProd.CidrBlock, 2, 5]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "nonprod-subnet-1"
+
+  VPCNonprodSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [1, !Cidr [!GetAtt VPCNonProd.CidrBlock, 2, 5]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "nonprod-subnet-2"
+
+# Production route table
+
+  DefaultRouteTableVPCProd:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: Prod-Default-RT
+
+  VPCProdSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DefaultRouteTableVPCProd
+      SubnetId: !Ref VPCProdSubnet1
+
+  VPCProdSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DefaultRouteTableVPCProd
+      SubnetId: !Ref VPCProdSubnet2
+
+# Non-Production route table
+
+  DefaultRouteTableVPCNonprod:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: Nonprod-Default-RT
+
+  VPCNonprodSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DefaultRouteTableVPCNonprod
+      SubnetId: !Ref VPCNonprodSubnet1
+
+  VPCNonprodSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DefaultRouteTableVPCNonprod
+      SubnetId: !Ref VPCNonprodSubnet2
+
+# EC2 Instance role for both environments
+
+  Ec2SsmIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+
+  EC2SsmInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref Ec2SsmIamRole
+
+# Production instance and VPC endpoints
+
+  InstanceSecurityGroupProd:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Production instances
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - Description: allow ICMP from CloudWAN
+          IpProtocol: icmp
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: 10.0.0.0/8
+
+  EC2InstanceProd:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroupProd
+      SubnetId:
+        Ref: VPCProdSubnet1
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SsmInstanceProfile
+      Tags:
+        - Key: Name
+          Value: "Prod-Instance"
+
+  SecurityGroupVpcEndpointProd:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Production VPC Endpoints
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - Description: allow inbound HTTPS from production instances
+          SourceSecurityGroupId: !Ref InstanceSecurityGroupProd
+          FromPort: 443
+          ToPort: 443
+          IpProtocol: tcp
+
+  SsmVpcEndpointProd:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnet1
+        - !Ref VPCProdSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointProd
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  SsmMessagesVpcEndpointProd:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnet1
+        - !Ref VPCProdSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointProd
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  Ec2MessagesVpcEndpointProd:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnet1
+        - !Ref VPCProdSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointProd
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+# Non-Production instance and VPC endpoints
+
+  InstanceSecurityGroupNonProd:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Production instances
+      VpcId: !Ref VPCNonProd
+      SecurityGroupIngress:
+        - Description: allow ICMP from CloudWAN
+          IpProtocol: icmp
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: 10.0.0.0/8
+
+  EC2InstanceNonprod:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - Ref: InstanceSecurityGroupNonProd
+      SubnetId:
+        Ref: VPCNonprodSubnet1
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SsmInstanceProfile
+      Tags:
+        - Key: Name
+          Value: "Nonprod-Instance"
+
+  SecurityGroupVpcEndpointNonprod:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Nonprod VPC Endpoints
+      VpcId: !Ref VPCNonProd
+      SecurityGroupIngress:
+        - Description: allow inbound HTTPS from nonprod instances
+          SourceSecurityGroupId: !Ref InstanceSecurityGroupNonProd
+          FromPort: 443
+          ToPort: 443
+          IpProtocol: tcp
+
+  SsmVpcEndpointNonprod:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonprodSubnet1
+        - !Ref VPCNonprodSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointNonprod
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  SsmMessagesVpcEndpointNonprod:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonprodSubnet1
+        - !Ref VPCNonprodSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointNonprod
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  Ec2MessagesVpcEndpointNonprod:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonprodSubnet1
+        - !Ref VPCNonprodSubnet2
+      SecurityGroupIds:
+        - !Ref SecurityGroupVpcEndpointNonprod
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+# CloudWAN attachments and routes
+
+  NonprodCloudwanAttachment:
+    Type: AWS::NetworkManager::VpcAttachment
+    Properties:
+      CoreNetworkId:
+        Ref: CloudWANID
+      SubnetArns:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCNonprodSubnet1
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCNonprodSubnet2
+      Tags:
+        - Key: nonprod
+          Value: cloudwan-segment
+      VpcArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":ec2:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":vpc/"
+            - Ref: VPCNonProd
+
+  ProdCloudAttachmentwan:
+    Type: AWS::NetworkManager::VpcAttachment
+    Properties:
+      CoreNetworkId: !Ref CloudWANID
+      SubnetArns:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCProdSubnet1
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCProdSubnet2
+      Tags:
+        - Key: prod
+          Value: cloudwan-segment
+      VpcArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":ec2:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":vpc/"
+            - Ref: VPCProd
+
+  RouteFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: AllowLambdaVPC
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ec2:CreateRoute
+                  - ec2:UpdateRoute
+                  - ec2:DeleteRoute
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ec2:*:*:route-table/*
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  FunctionLogGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: Encryption not required for this log group
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${RouteFunction}
+      RetentionInDays: 7
+
+  RouteFunction:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: CWL permissions granted by use of AWSLambdaBasicExecutionRole
+          - id: W89
+            reason: No requirement for this function to be in a VPC
+          - id: W92
+            reason: No requirement to limit simultaneous executions
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Manage route table entry for CoreNetwork
+      Runtime: python3.9
+      Timeout: 10
+      Role: !GetAtt RouteFunctionRole.Arn
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |-
+          import logging
+          import boto3
+          import json
+          import cfnresponse
+          from botocore.exceptions import ClientError
+
+          log = logging.getLogger("handler")
+          log.setLevel(logging.INFO)
+
+
+          def lambda_handler(event, context):
+              try:
+                  log.info("Received event: %s", json.dumps(event))
+                  action = event["RequestType"]
+                  cidr = event["ResourceProperties"]["Cidr"]
+                  table_id = event["ResourceProperties"]["RouteTableId"]
+                  core_arn = event["ResourceProperties"]["CoreNetworkArn"]
+                  ec2 = boto3.client("ec2")
+                  response = {}
+                  if action == "Create":
+                      log.info(
+                          "Creating route to %s with arn %s for table %s",
+                          cidr,
+                          core_arn,
+                          table_id,
+                      )
+                      response = ec2.create_route(
+                          DestinationCidrBlock=cidr,
+                          RouteTableId=table_id,
+                          CoreNetworkArn=core_arn,
+                      )
+                  if action == "Delete":
+                      log.info("Deleting route to %s in table %s", cidr, table_id)
+                      try:
+                          response = ec2.delete_route(
+                              DestinationCidrBlock=cidr, RouteTableId=table_id
+                          )
+                      except ClientError as error:
+                          if error.response["Error"]["Code"] == "InvalidRoute.NotFound":
+                              response = {"Return": True}
+                          else:
+                              raise error
+                  if action == "Update":
+                      old_cidr = event["OldResourceProperties"]["Cidr"]
+                      old_table_id = event["OldResourceProperties"]["RouteTableId"]
+                      if old_cidr == cidr and old_table_id == table_id:
+                          log.info(
+                              "Updating route table %s entry for %s to %s",
+                              table_id,
+                              cidr,
+                              core_arn,
+                          )
+                          ec2.replace_route(
+                              DestinationCidrBlock=cidr,
+                              RouteTableId=table_id,
+                              CoreNetworkArn=core_arn,
+                          )
+                          response["Return"] = True
+                      else:
+                          log.info(
+                              "Replacing route with interruption due to change in cidr and/or table id"
+                          )
+                          try:
+                              response = ec2.delete_route(
+                                  DestinationCidrBlock=old_cidr, RouteTableId=old_table_id
+                              )
+                          except ClientError as error:
+                              if error.response["Error"]["Code"] != "InvalidRoute.NotFound":
+                                  raise error
+                          log.info(
+                              "Creating replacement route %s to %s in table %s",
+                              cidr,
+                              core_arn,
+                              table_id,
+                          )
+                          response = ec2.create_route(
+                              DestinationCidrBlock=cidr,
+                              RouteTableId=table_id,
+                              CoreNetworkArn=core_arn,
+                          )
+                  if "Return" in response:
+                      if response["Return"]:
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                          return
+                      cfnresponse.send(
+                          event, context, cfnresponse.FAILED, {}, reason="API request failed"
+                      )
+                      return
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+  ProdRouteTableEntry:
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - ProdCloudAttachmentwan
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref DefaultRouteTableVPCProd
+      CoreNetworkArn: !Ref CloudWANARN
+
+  NonProdRouteTableEntry:
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - NonprodCloudwanAttachment
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref DefaultRouteTableVPCNonprod
+      CoreNetworkArn: !Ref CloudWANARN

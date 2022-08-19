@@ -29,20 +29,24 @@ variable "nvirginia_spoke_vpcs" {
 
   default = {
     "non-prod" = {
-      type                 = "nonprod"
-      name                 = "non-prod-us-east-1"
-      number_azs           = 2
-      cidr_block           = "10.11.0.0/16"
-      private_subnet_cidrs = ["10.11.0.0/24", "10.11.2.0/24"]
-      instance_type        = "t3.nano"
+      type                  = "nonprod"
+      name                  = "non-prod-us-east-1"
+      number_azs            = 2
+      cidr_block            = "10.10.0.0/24"
+      endpoint_subnet_cidrs = ["10.10.0.0/28", "10.10.0.16/28"]
+      private_subnet_cidrs  = ["10.10.0.32/28", "10.10.0.48/28"]
+      cwan_subnet_cidrs     = ["10.10.0.64/28", "10.10.0.80/28"]
+      instance_type         = "t2.micro"
     }
     "prod" = {
-      type                 = "prod"
-      name                 = "prod-us-east-1"
-      number_azs           = 2
-      cidr_block           = "10.10.0.0/16"
-      private_subnet_cidrs = ["10.10.1.0/24", "10.10.2.0/24"]
-      instance_type        = "t3.nano"
+      type                  = "prod"
+      name                  = "prod-us-east-1"
+      number_azs            = 2
+      cidr_block            = "10.0.0.0/24"
+      endpoint_subnet_cidrs = ["10.0.0.0/28", "10.0.0.16/28"]
+      private_subnet_cidrs  = ["10.0.0.32/28", "10.0.0.48/28"]
+      cwan_subnet_cidrs     = ["10.0.0.64/28", "10.0.0.80/28"]
+      instance_type         = "t2.micro"
     }
   }
 }
@@ -53,10 +57,11 @@ variable "nvirginia_inspection_vpc" {
 
   default = {
     name                    = "inspection-us-east-1"
-    cidr_block              = "100.64.0.0/16"
+    cidr_block              = "100.64.0.0/24"
     number_azs              = 2
-    public_subnet_cidrs     = ["100.64.1.0/24", "100.64.3.0/24"]
-    inspection_subnet_cidrs = ["100.64.0.0/24", "100.64.2.0/24"]
+    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28"]
+    inspection_subnet_cidrs = ["100.64.0.32/28", "100.64.0.48/28"]
+    cwan_subnet_cidrs       = ["100.64.0.64/28", "100.64.0.80/28"]
   }
 }
 
@@ -67,20 +72,24 @@ variable "ireland_spoke_vpcs" {
 
   default = {
     "non-prod" = {
-      type                 = "nonprod"
-      name                 = "non-prod-eu-west-1"
-      number_azs           = 2
-      cidr_block           = "10.1.0.0/16"
-      private_subnet_cidrs = ["10.1.0.0/24", "10.1.2.0/24"]
-      instance_type        = "t3.nano"
+      type                  = "nonprod"
+      name                  = "non-prod-eu-west-1"
+      number_azs            = 2
+      cidr_block            = "10.11.0.0/24"
+      endpoint_subnet_cidrs = ["10.11.0.0/28", "10.11.0.16/28"]
+      private_subnet_cidrs  = ["10.11.0.32/28", "10.11.0.48/28"]
+      cwan_subnet_cidrs     = ["10.11.0.64/28", "10.11.0.80/28"]
+      instance_type         = "t2.micro"
     }
     "prod" = {
-      type                 = "prod"
-      name                 = "prod-eu-west-1"
-      number_azs           = 2
-      cidr_block           = "10.0.0.0/16"
-      private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24"]
-      instance_type        = "t3.nano"
+      type                  = "prod"
+      name                  = "prod-eu-west-1"
+      number_azs            = 2
+      cidr_block            = "10.1.0.0/24"
+      endpoint_subnet_cidrs = ["10.1.0.0/28", "10.1.0.16/28"]
+      private_subnet_cidrs  = ["10.1.0.32/28", "10.1.0.48/28"]
+      cwan_subnet_cidrs     = ["10.1.0.64/28", "10.1.0.80/28"]
+      instance_type         = "t2.micro"
     }
   }
 }
@@ -93,7 +102,8 @@ variable "ireland_inspection_vpc" {
     name                    = "inspection-eu-west-1"
     cidr_block              = "100.64.0.0/16"
     number_azs              = 2
-    public_subnet_cidrs     = ["100.64.1.0/24", "100.64.3.0/24"]
-    inspection_subnet_cidrs = ["100.64.0.0/24", "100.64.2.0/24"]
+    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28"]
+    inspection_subnet_cidrs = ["100.64.0.32/28", "100.64.0.48/28"]
+    cwan_subnet_cidrs       = ["100.64.0.64/28", "100.64.0.80/28"]
   }
 }

@@ -8,6 +8,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   core_network_configuration {
     vpn_ecmp_support = false
     asn_ranges       = ["64512-64555"]
+
     edge_locations {
       location = "us-east-1"
       asn      = 64512
@@ -17,6 +18,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
       asn      = 64513
     }
   }
+
   segments {
     name                          = "shared"
     description                   = "Segment for shared services"
@@ -26,7 +28,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   segments {
     name                          = "prod"
     description                   = "Segment for prod services"
-    require_attachment_acceptance = false
+    require_attachment_acceptance = true
   }
 
   segments {
@@ -64,10 +66,14 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   }
 
   attachment_policies {
-    rule_number = 100
+    rule_number     = 100
+    condition_logic = "or"
+
     conditions {
-      type = "tag-exists"
-      key  = "nonprod"
+      type     = "tag-value"
+      operator = "equals"
+      key      = "env"
+      value    = "nonprod"
     }
     action {
       association_method = "constant"
@@ -76,10 +82,14 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   }
 
   attachment_policies {
-    rule_number = 200
+    rule_number     = 200
+    condition_logic = "or"
+
     conditions {
-      type = "tag-exists"
-      key  = "prod"
+      type     = "tag-value"
+      operator = "equals"
+      key      = "env"
+      value    = "prod"
     }
     action {
       association_method = "constant"
@@ -88,10 +98,14 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   }
 
   attachment_policies {
-    rule_number = 300
+    rule_number     = 300
+    condition_logic = "or"
+
     conditions {
-      type = "tag-exists"
-      key  = "inspection"
+      type     = "tag-value"
+      operator = "equals"
+      key      = "env"
+      value    = "inspection"
     }
     action {
       association_method = "constant"

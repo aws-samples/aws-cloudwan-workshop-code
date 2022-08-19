@@ -4,6 +4,6 @@
 # --- modules/cloudwan_attachment/outputs.tf ---
 
 output "cloudwan_attachment" {
-    description = "Cloud WAN Attachment."
-    value = awscc_networkmanager_vpc_attachment.corenw_attachment
+  description = "Cloud WAN Attachment."
+  value       = aws_networkmanager_vpc_attachment.cwan_attachment
 }

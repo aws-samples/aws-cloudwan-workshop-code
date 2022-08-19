@@ -3,8 +3,8 @@
 
 # --- root/main.tf ---
 
-# -------------------------- AWS Cloud WAN --------------------------
-# The Cloud WAN module used creates the Global Network and the Core Network (with initial policy defined in cloudwan_policy.tf)
+# AWS CLOUD WAN
+# The module used creates the Global Network and the Core Network (with initial policy defined in cloudwan_policy.tf)
 module "cloudwan" {
   source  = "aws-ia/cloudwan/aws"
   version = "= 0.0.6"
@@ -26,37 +26,45 @@ module "cloudwan" {
   }
 }
 
-# ----------- RESOURCES IN N. VIRGINIA REGION (us-east-1) -----------
+# RESOURCES IN N. VIRGINIA REGION (us-east-1)
 # Spoke VPCs - definition in variables.tf
 module "nvirginia_spoke_vpcs" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 1.4.1"
+  for_each = var.nvirginia_spoke_vpcs
+  source   = "aws-ia/vpc/aws"
+  version  = "= 2.4.0"
   providers = {
     aws   = aws.awsnvirginia
     awscc = awscc.awsccnvirginia
   }
-
-  for_each = var.nvirginia_spoke_vpcs
 
   name       = each.key
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   subnets = {
+    endpoint = {
+      name_prefix = "vpc_endpoints"
+      cidrs       = each.value.endpoint_subnet_cidrs
+    }
     private = {
       name_prefix = "private"
-      cidrs       = slice(each.value.private_subnet_cidrs, 0, each.value.number_azs)
+      cidrs       = each.value.private_subnet_cidrs
+    }
+    cwan = {
+      name_prefix = "cloud_wan"
+      cidrs       = each.value.cwan_subnet_cidrs
     }
   }
+
   tags = {
-    Environment = each.value.type
+    env = each.value.type
   }
 }
 
 # Inspection VPC - definition in variables.tf
 module "nvirginia_inspection_vpc" {
   source  = "aws-ia/vpc/aws"
-  version = "= 1.4.1"
+  version = "= 2.4.0"
   providers = {
     aws   = aws.awsnvirginia
     awscc = awscc.awsccnvirginia
@@ -69,80 +77,184 @@ module "nvirginia_inspection_vpc" {
   subnets = {
     public = {
       name_prefix               = "public"
-      cidrs                     = slice(var.nvirginia_inspection_vpc.public_subnet_cidrs, 0, var.nvirginia_inspection_vpc.number_azs)
+      cidrs                     = var.nvirginia_inspection_vpc.public_subnet_cidrs
       nat_gateway_configuration = "all_azs"
     }
-    private = {
-      name_prefix  = "inspection"
-      cidrs        = slice(var.nvirginia_inspection_vpc.inspection_subnet_cidrs, 0, var.nvirginia_inspection_vpc.number_azs)
-      route_to_nat = true
+    inspection = {
+      name_prefix             = "inspection"
+      cidrs                   = var.nvirginia_inspection_vpc.inspection_subnet_cidrs
+      connect_to_public_natgw = true
+    }
+    cwan = {
+      name_prefix = "cloud_wan"
+      cidrs       = var.nvirginia_inspection_vpc.cwan_subnet_cidrs
     }
   }
+
   tags = {
-    Environment = "inspection"
+    env = "inspection"
   }
 }
 
-# # Spoke VPC Cloud WAN attachments
-# module "nvirginia_spoke_cwattachments" {
-#   for_each = module.nvirginia_spoke_vpcs
-#   source = "./modules/cloudwan_attachment"
-#   providers = {
-#     aws   = aws.awsnvirginia
-#     awscc = awscc.awsccnvirginia
-#   }
+# Spoke VPC Cloud WAN attachments
+module "nvirginia_spoke_cwattachments" {
+  for_each = module.nvirginia_spoke_vpcs
+  source   = "./modules/cloudwan_attachment"
+  providers = {
+    aws   = aws.awsnvirginia
+    awscc = awscc.awsccnvirginia
+  }
 
-#   core_network_id = module.cloudwan.core_network.id
-#   core_network_arn = module.cloudwan.core_network.arn
-#   vpc_info = each.value
-#   route_to_cloudwan = "0.0.0.0/0"
+  core_network_id   = module.cloudwan.core_network.id
+  core_network_arn  = module.cloudwan.core_network.core_network_arn
+  vpc_name          = each.key
+  environment       = var.nvirginia_spoke_vpcs[each.key].type
+  vpc_arn           = each.value.vpc_attributes.arn
+  cloudwan_subnets  = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables      = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs        = var.nvirginia_spoke_vpcs[each.key].number_azs
+  route_to_cloudwan = "0.0.0.0/0"
+}
+
+# Attachment acceptance (only for attachments going to prod)
+# resource "aws_networkmanager_attachment_accepter" "nvirginia_cwan_attachment_acceptance" {
+#   for_each = {
+#     for k, v in module.nvirginia_spoke_cwattachments : k => v.cloudwan_attachment.id
+#     if var.ireland_spoke_vpcs[k].type == "prod"
+#   }
+#   provider = aws.awsnvirginia
+
+#   attachment_id   = each.value
+#   attachment_type = "VPC"
 # }
 
-# # Inspection VPC Cloud WAN attachment
-# module "nvirginia_inspection_cwattachment" {
-#   source = "./modules/cloudwan_attachment"
-#   providers = {
-#     aws   = aws.awsnvirginia
-#     awscc = awscc.awsccnvirginia
-#   }
+# Inspection VPC Cloud WAN attachment
+module "nvirginia_inspection_cwattachment" {
+  source = "./modules/cloudwan_attachment"
+  providers = {
+    aws   = aws.awsnvirginia
+    awscc = awscc.awsccnvirginia
+  }
 
-#   core_network_id = module.cloudwan.core_network.id
-#   core_network_arn = module.cloudwan.core_network.arn
-#   vpc_info = module.nvirginia_inspection_vpc
-#   route_to_cloudwan = "10.10.0.0/15"
-# }
+  core_network_id   = module.cloudwan.core_network.id
+  core_network_arn  = module.cloudwan.core_network.core_network_arn
+  vpc_name          = "inspection-vpc"
+  environment       = "inspection"
+  vpc_arn           = module.nvirginia_inspection_vpc.vpc_attributes.arn
+  cloudwan_subnets  = values({ for k, v in module.nvirginia_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables      = values({ for k, v in module.nvirginia_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
+  number_azs        = var.nvirginia_inspection_vpc.number_azs
+  route_to_cloudwan = "10.0.0.0/8"
+}
 
-# ------------- RESOURCES IN IRELAND REGION (eu-west-1) -------------
+# AWS Network Firewall Resource
+module "anfw_nvirginia" {
+  source  = "aws-ia/networkfirewall/aws"
+  version = "0.0.1"
+  providers = {
+    aws = aws.awsnvirginia
+  }
+
+  network_firewall_name   = "anfw-nvirginia"
+  network_firewall_policy = aws_networkfirewall_firewall_policy.nvirginia_fwpolicy.arn
+
+  vpc_id      = module.nvirginia_inspection_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.nvirginia_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.nvirginia_inspection_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_with_egress = {
+      tgw_subnet_route_tables    = { for k, v in module.nvirginia_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "cwan" }
+      public_subnet_route_tables = { for k, v in module.nvirginia_inspection_vpc.rt_attributes_by_type_by_az.public : k => v.id }
+      network_cidr_blocks        = ["10.0.0.0/8"]
+    }
+  }
+}
+
+# KMS Key (used to encrypt VPC flow logs)
+module "kms_nvirginia" {
+  source = "./modules/kms"
+  providers = {
+    aws = aws.awsnvirginia
+  }
+
+  project_name = var.project_identifier
+  aws_region   = var.aws_regions.north_virginia
+}
+
+# EC2 Instances (1 instance per subnet in each Spoke VPC)
+module "compute_nvirginia" {
+  for_each = module.nvirginia_spoke_vpcs
+  source   = "./modules/compute"
+  providers = {
+    aws = aws.awsnvirginia
+  }
+
+  project_name             = var.project_identifier
+  vpc_name                 = each.key
+  vpc_id                   = each.value.vpc_attributes.id
+  vpc_subnets              = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs               = var.nvirginia_spoke_vpcs[each.key].number_azs
+  instance_type            = var.nvirginia_spoke_vpcs[each.key].instance_type
+  ec2_iam_instance_profile = module.iam.ec2_iam_instance_profile
+  ec2_security_group       = local.north_virginia.security_groups.instance
+}
+
+# VPC endpoints (SSM access)
+module "vpc_endpoints_nvirginia" {
+  for_each = module.nvirginia_spoke_vpcs
+  source   = "./modules/vpc_endpoints"
+  providers = {
+    aws = aws.awsnvirginia
+  }
+
+  project_name             = var.project_identifier
+  vpc_name                 = each.key
+  vpc_id                   = each.value.vpc_attributes.id
+  vpc_subnets              = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "endpoint" })
+  endpoints_security_group = local.north_virginia.security_groups.endpoints
+  endpoints_service_names  = local.north_virginia.endpoint_service_names
+}
+
+# RESOURCES IN IRELAND REGION (eu-west-1)
 # Spoke VPCs - definition in variables.tf
 module "ireland_spoke_vpcs" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 1.4.1"
+  for_each = var.ireland_spoke_vpcs
+  source   = "aws-ia/vpc/aws"
+  version  = "= 2.4.0"
   providers = {
     aws   = aws.awsireland
     awscc = awscc.awsccireland
   }
-
-  for_each = var.ireland_spoke_vpcs
 
   name       = each.key
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   subnets = {
+    endpoint = {
+      name_prefix = "vpc_endpoints"
+      cidrs       = each.value.endpoint_subnet_cidrs
+    }
     private = {
       name_prefix = "private"
-      cidrs       = slice(each.value.private_subnet_cidrs, 0, each.value.number_azs)
+      cidrs       = each.value.private_subnet_cidrs
+    }
+    cwan = {
+      name_prefix = "cloud_wan"
+      cidrs       = each.value.cwan_subnet_cidrs
     }
   }
+
   tags = {
-    Environment = each.value.type
+    env = each.value.type
   }
 }
 
 # Inspection VPC - definition in variables.tf
 module "ireland_inspection_vpc" {
   source  = "aws-ia/vpc/aws"
-  version = "= 1.4.1"
+  version = "= 2.4.0"
   providers = {
     aws   = aws.awsireland
     awscc = awscc.awsccireland
@@ -155,115 +267,153 @@ module "ireland_inspection_vpc" {
   subnets = {
     public = {
       name_prefix               = "public"
-      cidrs                     = slice(var.ireland_inspection_vpc.public_subnet_cidrs, 0, var.ireland_inspection_vpc.number_azs)
+      cidrs                     = var.ireland_inspection_vpc.public_subnet_cidrs
       nat_gateway_configuration = "all_azs"
     }
-    private = {
-      name_prefix  = "inspection"
-      cidrs        = slice(var.ireland_inspection_vpc.inspection_subnet_cidrs, 0, var.ireland_inspection_vpc.number_azs)
-      route_to_nat = true
+    inspection = {
+      name_prefix             = "inspection"
+      cidrs                   = var.ireland_inspection_vpc.inspection_subnet_cidrs
+      connect_to_public_natgw = true
+    }
+    cwan = {
+      name_prefix = "cloud_wan"
+      cidrs       = var.ireland_inspection_vpc.cwan_subnet_cidrs
     }
   }
+
   tags = {
-    Environment = "inspection"
+    env = "inspection"
   }
 }
 
-# # Spoke VPC Cloud WAN attachments
-# module "ireland_spoke_cwattachments" {
-#   for_each = module.ireland_spoke_vpcs
-#   source = "./modules/cloudwan_attachment"
-#   providers = {
-#     aws   = aws.awsireland
-#     awscc = awscc.awsccireland
-#   }
+# Spoke VPC Cloud WAN attachments
+module "ireland_spoke_cwattachments" {
+  for_each = module.ireland_spoke_vpcs
+  source   = "./modules/cloudwan_attachment"
+  providers = {
+    aws   = aws.awsireland
+    awscc = awscc.awsccireland
+  }
 
-#   core_network_id = module.cloudwan.core_network.id
-#   core_network_arn = module.cloudwan.core_network.arn
-#   vpc_info = each.value
-#   route_to_cloudwan = "0.0.0.0/0"
+  core_network_id   = module.cloudwan.core_network.id
+  core_network_arn  = module.cloudwan.core_network.core_network_arn
+  vpc_name          = each.key
+  environment       = var.ireland_spoke_vpcs[each.key].type
+  vpc_arn           = each.value.vpc_attributes.arn
+  cloudwan_subnets  = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables      = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs        = var.ireland_spoke_vpcs[each.key].number_azs
+  route_to_cloudwan = "0.0.0.0/0"
+}
+
+# Attachment acceptance (only for attachments going to prod)
+# resource "aws_networkmanager_attachment_accepter" "ireland_cwan_attachment_acceptance" {
+#   for_each = {
+#     for k, v in module.ireland_spoke_cwattachments : k => v.cloudwan_attachment.id
+#     if var.ireland_spoke_vpcs[k].type == "prod"
+#   }
+#   provider = aws.awsireland
+
+#   attachment_id   = each.value
+#   attachment_type = "VPC"
 # }
 
-# # Inspection VPC Cloud WAN attachment
-# module "ireland_inspection_cwattachment" {
-#   source = "./modules/cloudwan_attachment"
-#   providers = {
-#     aws   = aws.awsnvirginia
-#     awscc = awscc.awsccnvirginia
-#   }
+# Inspection VPC Cloud WAN attachment
+module "ireland_inspection_cwattachment" {
+  source = "./modules/cloudwan_attachment"
+  providers = {
+    aws   = aws.awsireland
+    awscc = awscc.awsccireland
+  }
 
-#   core_network_id = module.cloudwan.core_network.id
-#   core_network_arn = module.cloudwan.core_network.arn
-#   vpc_info = module.ireland_inspection_vpc
-#   route_to_cloudwan = "10.0.0.0/15"
-# }
+  core_network_id   = module.cloudwan.core_network.id
+  core_network_arn  = module.cloudwan.core_network.core_network_arn
+  vpc_name          = "inspection-vpc"
+  environment       = "inspection"
+  vpc_arn           = module.ireland_inspection_vpc.vpc_attributes.arn
+  cloudwan_subnets  = values({ for k, v in module.ireland_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables      = values({ for k, v in module.ireland_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
+  number_azs        = var.ireland_inspection_vpc.number_azs
+  route_to_cloudwan = "10.0.0.0/8"
+}
+
+# AWS Network Firewall Resource
+module "anfw_ireland" {
+  source  = "aws-ia/networkfirewall/aws"
+  version = "0.0.1"
+  providers = {
+    aws = aws.awsireland
+  }
+
+  network_firewall_name   = "anfw-ireland"
+  network_firewall_policy = aws_networkfirewall_firewall_policy.ireland_fwpolicy.arn
+
+  vpc_id      = module.ireland_inspection_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.ireland_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.ireland_inspection_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_with_egress = {
+      tgw_subnet_route_tables    = { for k, v in module.ireland_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "cwan" }
+      public_subnet_route_tables = { for k, v in module.ireland_inspection_vpc.rt_attributes_by_type_by_az.public : k => v.id }
+      network_cidr_blocks        = ["10.0.0.0/8"]
+    }
+  }
+}
+
+# KMS Key (used to encrypt VPC flow logs)
+module "kms_ireland" {
+  source = "./modules/kms"
+  providers = {
+    aws = aws.awsireland
+  }
+
+  project_name = var.project_identifier
+  aws_region   = var.aws_regions.ireland
+}
+
+# EC2 Instances (1 instance per subnet in each Spoke VPC)
+module "compute_ireland" {
+  for_each = module.ireland_spoke_vpcs
+  source   = "./modules/compute"
+  providers = {
+    aws = aws.awsireland
+  }
+
+  project_name             = var.project_identifier
+  vpc_name                 = each.key
+  vpc_id                   = each.value.vpc_attributes.id
+  vpc_subnets              = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs               = var.ireland_spoke_vpcs[each.key].number_azs
+  instance_type            = var.ireland_spoke_vpcs[each.key].instance_type
+  ec2_iam_instance_profile = module.iam.ec2_iam_instance_profile
+  ec2_security_group       = local.ireland.security_groups.instance
+}
+
+# VPC endpoints (SSM access)
+module "vpc_endpoints_ireland" {
+  for_each = module.ireland_spoke_vpcs
+  source   = "./modules/vpc_endpoints"
+  providers = {
+    aws = aws.awsireland
+  }
+
+  project_name             = var.project_identifier
+  vpc_name                 = each.key
+  vpc_id                   = each.value.vpc_attributes.id
+  vpc_subnets              = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "endpoint" })
+  endpoints_security_group = local.ireland.security_groups.endpoints
+  endpoints_service_names  = local.ireland.endpoint_service_names
+}
 
 
+# GLOBAL RESOURCES (IAM)
+# IAM module creates the IAM roles needed to publish VPC Flow Logs into CloudWatch Logs, and for EC2 instances to connect to Systems Manager (regardless the AWS Region)
+module "iam" {
+  source = "./modules/iam"
+  providers = {
+    aws = aws.awsnvirginia
+  }
 
-
-# module "cwan_components_singapore" {
-#   Create Cloud WAN related components in Singapore region
-#   Public Subnets, Internet Gateway, NAT Gateway
-#   Security Groups and rules
-#   VPC Endpoints, Firewall Subnets
-#   Test EC2 instances to validate configurations and connectivity
-#   Firewall Subnets, Core Network Attachments
-#   source = "./modules/cwan_components"
-#   providers = {
-#     aws   = aws.apse1
-#     awscc = awscc.awsccapse1
-#   }
-
-#   aws_region              = var.aws_singapore_region
-#   deployment_region       = var.deploy_singapore_region
-#   ec2_instance_type       = var.ec2_instance_type
-#   deploy_global_resources = true
-
-#   public_subnets_info = var.singapore_public_subnets_info
-
-#   security_groups_info      = local.singapore_security_groups_info
-#   vpc_endpoints_ssm         = local.singapore_vpc_endpoints_ssm
-#   vpc_endpoints_ssmmessages = local.singapore_vpc_endpoints_ssmmessages
-#   vpc_endpoints_ec2messages = local.singapore_vpc_endpoints_ec2messages
-#   ec2_instances             = local.singapore_ec2_instances
-#   firewall_subnets          = local.singapore_firewall_subnets
-
-#   private_route_table_ids = values({ for k, v in module.singapore_vpcs["egress-vpc"].route_table_by_subnet_type.private : k => v.route_table_id })
-#   network_firewall_vpc    = module.singapore_vpcs["egress-vpc"].vpc_attributes.id
-#   core_network_id         = module.cloudwan.core_network["core_network_id"]
-#   core_network_arn        = module.cloudwan.core_network["core_network_arn"]
-#   core_nw_attachments     = local.singapore_core_nw_attachments
-# }
-
-# module "cwan_components_sydney" {
-#   Create Cloud WAN related components in Sydney region
-#   Public Subnets, Internet Gateway, NAT Gateway
-#   Security Groups and rules
-#   VPC Endpoints, Firewall Subnets
-#   Test EC2 instances to validate configurations and connectivity
-#   Firewall Subnets
-#   source = "./modules/cwan_components"
-#   providers = {
-#     aws   = aws.apse2
-#     awscc = awscc.awsccapse2
-#   }
-
-#   aws_region              = var.aws_sydney_region
-#   deployment_region       = var.deploy_sydney_region
-#   ec2_instance_type       = var.ec2_instance_type
-#   deploy_global_resources = false
-#   public_subnets_info     = var.sydney_public_subnets_info
-
-#   security_groups_info      = local.sydney_security_groups_info
-#   vpc_endpoints_ssm         = local.sydney_vpc_endpoints_ssm
-#   vpc_endpoints_ssmmessages = local.sydney_vpc_endpoints_ssmmessages
-#   vpc_endpoints_ec2messages = local.sydney_vpc_endpoints_ec2messages
-#   ec2_instances             = local.sydney_ec2_instances
-#   firewall_subnets          = local.sydney_firewall_subnets
-
-#   private_route_table_ids = values({ for k, v in module.sydney_vpcs["egress-vpc"].route_table_by_subnet_type.private : k => v.route_table_id })
-#   network_firewall_vpc    = module.sydney_vpcs["egress-vpc"].vpc_attributes.id
-#   core_network_id         = module.cloudwan.core_network["core_network_id"]
-#   core_network_arn        = module.cloudwan.core_network["core_network_arn"]
-#   core_nw_attachments     = local.sydney_core_nw_attachments
-# }
+  project_name = var.project_identifier
+}

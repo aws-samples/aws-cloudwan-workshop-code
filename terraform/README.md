@@ -22,17 +22,17 @@ This repository shows you an example in Terraform of global communication with A
 * Initialize Terraform using `terraform init`.
 * Now you can deploy the rest of the infrastructure using `terraform apply`.
 * Once the deployment is finished, you can check in the [AWS Cloud WAN management console](https://us-west-2.console.aws.amazon.com/networkmanager/home) that the Spoke VPC production attachments require acceptance. In the `main.tf` file you will find commented the piece of code needed to accept those attachments.
-* Please make a note of the outputs giving you the Cloud WAN VPC attachments for the Inspection VPCs - `cloud_wan.attachments.{aws_region}.inspection` - as this will be needed for next run`.
+* Please make a note of the outputs giving you the Cloud WAN VPC attachments for the Inspection VPCs - `cloud_wan.attachments.{aws_region}.inspection` - as this will be needed for next run.
 
 ## Updating Core Network Policy for Routing
 
 **NOTE**: this configuration step is an MPV design, we are working on removing the need of this update and have everything working in the same `terraform apply`.
 
 * After the entire infrastructure stack gets created, to facilitate Routing and to enable communication between attachments, the Routing configuration has to be updated.
-* This would be a manual step to update the `core\_nw\_policy` in `cloudwan\_policy.tf` and will soon be automated and baked into the original apply process.
+* This would be a manual step to update the `core_nw_policy` in `cloudwan_policy.tf` and will soon be automated and baked into the original apply process.
 * Based on the Outputs received in prior run, please update the policy document below and do `terraform apply` again.
 
-````hcl
+```hcl
 data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   core_network_configuration {
     vpn_ecmp_support = false

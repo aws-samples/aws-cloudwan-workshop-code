@@ -29,7 +29,21 @@ resource "aws_route" "private_to_core_network" {
   core_network_arn       = var.core_network_arn
 
   depends_on = [
-    aws_networkmanager_vpc_attachment.cwan_attachment
+    aws_networkmanager_vpc_attachment.cwan_attachment,
+    aws_networkmanager_attachment_accepter.cwan_attachment_acceptance
   ]
+}
+
+# Local variable to check if VPC attachment acceptance is needed
+locals {
+  acceptance_needed = var.environment == "prod" ? true : false
+}
+
+# Attachment acceptance (only for attachments going to prod)
+resource "aws_networkmanager_attachment_accepter" "cwan_attachment_acceptance" {
+  count = var.attachment_accepted && local.acceptance_needed ? 1 : 0
+
+  attachment_id   = aws_networkmanager_vpc_attachment.cwan_attachment.id
+  attachment_type = "VPC"
 }
 

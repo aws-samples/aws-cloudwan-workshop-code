@@ -22,6 +22,14 @@ variable "aws_regions" {
   }
 }
 
+# Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy)
+variable "accept_attachments" {
+  type        = bool
+  description = "Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy)."
+
+  default = true
+}
+
 # Definition of the VPCs to create in N. Virginia Region
 variable "nvirginia_spoke_vpcs" {
   type        = any

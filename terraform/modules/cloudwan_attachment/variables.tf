@@ -47,3 +47,8 @@ variable "route_to_cloudwan" {
   type        = string
   description = "CIDR block destination to route via Cloud WAN."
 }
+
+variable "attachment_accepted" {
+  type        = bool
+  description = "Indicates if the Cloud WAN attachment is accepted (only for segments that require acceptance)."
+}

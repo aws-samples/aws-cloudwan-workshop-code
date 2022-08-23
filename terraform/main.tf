@@ -105,28 +105,17 @@ module "nvirginia_spoke_cwattachments" {
     awscc = awscc.awsccnvirginia
   }
 
-  core_network_id   = module.cloudwan.core_network.id
-  core_network_arn  = module.cloudwan.core_network.core_network_arn
-  vpc_name          = each.key
-  environment       = var.nvirginia_spoke_vpcs[each.key].type
-  vpc_arn           = each.value.vpc_attributes.arn
-  cloudwan_subnets  = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
-  route_tables      = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
-  number_azs        = var.nvirginia_spoke_vpcs[each.key].number_azs
-  route_to_cloudwan = "0.0.0.0/0"
+  core_network_id     = module.cloudwan.core_network.id
+  core_network_arn    = module.cloudwan.core_network.core_network_arn
+  vpc_name            = each.key
+  environment         = var.nvirginia_spoke_vpcs[each.key].type
+  vpc_arn             = each.value.vpc_attributes.arn
+  cloudwan_subnets    = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables        = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs          = var.nvirginia_spoke_vpcs[each.key].number_azs
+  route_to_cloudwan   = "0.0.0.0/0"
+  attachment_accepted = var.nvirginia_spoke_vpcs[each.key].type == "prod" ? var.accept_attachments : true
 }
-
-# Attachment acceptance (only for attachments going to prod)
-# resource "aws_networkmanager_attachment_accepter" "nvirginia_cwan_attachment_acceptance" {
-#   for_each = {
-#     for k, v in module.nvirginia_spoke_cwattachments : k => v.cloudwan_attachment.id
-#     if var.ireland_spoke_vpcs[k].type == "prod"
-#   }
-#   provider = aws.awsnvirginia
-
-#   attachment_id   = each.value
-#   attachment_type = "VPC"
-# }
 
 # Inspection VPC Cloud WAN attachment
 module "nvirginia_inspection_cwattachment" {
@@ -136,15 +125,16 @@ module "nvirginia_inspection_cwattachment" {
     awscc = awscc.awsccnvirginia
   }
 
-  core_network_id   = module.cloudwan.core_network.id
-  core_network_arn  = module.cloudwan.core_network.core_network_arn
-  vpc_name          = "inspection-vpc"
-  environment       = "inspection"
-  vpc_arn           = module.nvirginia_inspection_vpc.vpc_attributes.arn
-  cloudwan_subnets  = values({ for k, v in module.nvirginia_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
-  route_tables      = values({ for k, v in module.nvirginia_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
-  number_azs        = var.nvirginia_inspection_vpc.number_azs
-  route_to_cloudwan = "10.0.0.0/8"
+  core_network_id     = module.cloudwan.core_network.id
+  core_network_arn    = module.cloudwan.core_network.core_network_arn
+  vpc_name            = "inspection-vpc"
+  environment         = "inspection"
+  vpc_arn             = module.nvirginia_inspection_vpc.vpc_attributes.arn
+  cloudwan_subnets    = values({ for k, v in module.nvirginia_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables        = values({ for k, v in module.nvirginia_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
+  number_azs          = var.nvirginia_inspection_vpc.number_azs
+  route_to_cloudwan   = "10.0.0.0/8"
+  attachment_accepted = true
 }
 
 # AWS Network Firewall Resource
@@ -295,28 +285,17 @@ module "ireland_spoke_cwattachments" {
     awscc = awscc.awsccireland
   }
 
-  core_network_id   = module.cloudwan.core_network.id
-  core_network_arn  = module.cloudwan.core_network.core_network_arn
-  vpc_name          = each.key
-  environment       = var.ireland_spoke_vpcs[each.key].type
-  vpc_arn           = each.value.vpc_attributes.arn
-  cloudwan_subnets  = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
-  route_tables      = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
-  number_azs        = var.ireland_spoke_vpcs[each.key].number_azs
-  route_to_cloudwan = "0.0.0.0/0"
+  core_network_id     = module.cloudwan.core_network.id
+  core_network_arn    = module.cloudwan.core_network.core_network_arn
+  vpc_name            = each.key
+  environment         = var.ireland_spoke_vpcs[each.key].type
+  vpc_arn             = each.value.vpc_attributes.arn
+  cloudwan_subnets    = values({ for k, v in each.value.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables        = values({ for k, v in each.value.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "private" })
+  number_azs          = var.ireland_spoke_vpcs[each.key].number_azs
+  route_to_cloudwan   = "0.0.0.0/0"
+  attachment_accepted = var.ireland_spoke_vpcs[each.key].type == "prod" ? var.accept_attachments : true
 }
-
-# Attachment acceptance (only for attachments going to prod)
-# resource "aws_networkmanager_attachment_accepter" "ireland_cwan_attachment_acceptance" {
-#   for_each = {
-#     for k, v in module.ireland_spoke_cwattachments : k => v.cloudwan_attachment.id
-#     if var.ireland_spoke_vpcs[k].type == "prod"
-#   }
-#   provider = aws.awsireland
-
-#   attachment_id   = each.value
-#   attachment_type = "VPC"
-# }
 
 # Inspection VPC Cloud WAN attachment
 module "ireland_inspection_cwattachment" {
@@ -326,15 +305,16 @@ module "ireland_inspection_cwattachment" {
     awscc = awscc.awsccireland
   }
 
-  core_network_id   = module.cloudwan.core_network.id
-  core_network_arn  = module.cloudwan.core_network.core_network_arn
-  vpc_name          = "inspection-vpc"
-  environment       = "inspection"
-  vpc_arn           = module.ireland_inspection_vpc.vpc_attributes.arn
-  cloudwan_subnets  = values({ for k, v in module.ireland_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
-  route_tables      = values({ for k, v in module.ireland_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
-  number_azs        = var.ireland_inspection_vpc.number_azs
-  route_to_cloudwan = "10.0.0.0/8"
+  core_network_id     = module.cloudwan.core_network.id
+  core_network_arn    = module.cloudwan.core_network.core_network_arn
+  vpc_name            = "inspection-vpc"
+  environment         = "inspection"
+  vpc_arn             = module.ireland_inspection_vpc.vpc_attributes.arn
+  cloudwan_subnets    = values({ for k, v in module.ireland_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.arn if split("/", k)[0] == "cwan" })
+  route_tables        = values({ for k, v in module.ireland_inspection_vpc.rt_attributes_by_type_by_az.private : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" })
+  number_azs          = var.ireland_inspection_vpc.number_azs
+  route_to_cloudwan   = "10.0.0.0/8"
+  attachment_accepted = true
 }
 
 # AWS Network Firewall Resource

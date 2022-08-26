@@ -27,7 +27,7 @@ variable "accept_attachments" {
   type        = bool
   description = "Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy)."
 
-  default = false
+  default = true
 }
 
 # Definition of the VPCs to create in N. Virginia Region

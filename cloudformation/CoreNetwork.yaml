@@ -45,7 +45,7 @@ Resources:
             core-network-configuration:
               vpn-ecmp-support: false
               asn-ranges:
-                - 64512-65535
+                - 64512-65534
               edge-locations:
                 - location: eu-west-1
                 - location: us-east-1
@@ -97,7 +97,7 @@ Resources:
             core-network-configuration:
               vpn-ecmp-support: false
               asn-ranges:
-                - 64512-65535
+                - 64512-65534
               edge-locations:
                 - location: eu-west-1
                 - location: us-east-1

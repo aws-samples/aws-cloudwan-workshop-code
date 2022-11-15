@@ -55,7 +55,7 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   segments {
     name                          = "prod"
     description                   = "Segment for prod services"
-    require_attachment_acceptance = false
+    require_attachment_acceptance = true
   }
 
   segments {
@@ -150,38 +150,34 @@ This library is licensed under the MIT-0 License. See the LICENSE file.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.15.3 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.27.0 |
-| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.25.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 3.73.0 |
+| <a name="requirement_awscc"></a> [awscc](#requirement\_awscc) | >= 0.15.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.27.0 |
-| <a name="provider_aws.awsireland"></a> [aws.awsireland](#provider\_aws.awsireland) | 4.27.0 |
-| <a name="provider_aws.awsnvirginia"></a> [aws.awsnvirginia](#provider\_aws.awsnvirginia) | 4.27.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.39.0 |
+| <a name="provider_aws.awsireland"></a> [aws.awsireland](#provider\_aws.awsireland) | 4.39.0 |
+| <a name="provider_aws.awsnvirginia"></a> [aws.awsnvirginia](#provider\_aws.awsnvirginia) | 4.39.0 |
+| <a name="provider_awscc.awsccnvirginia"></a> [awscc.awsccnvirginia](#provider\_awscc.awsccnvirginia) | 0.38.0 |
 
 ## Modules
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_anfw_ireland"></a> [anfw\_ireland](#module\_anfw\_ireland) | aws-ia/networkfirewall/aws | 0.0.1 |
-| <a name="module_anfw_nvirginia"></a> [anfw\_nvirginia](#module\_anfw\_nvirginia) | aws-ia/networkfirewall/aws | 0.0.1 |
-| <a name="module_cloudwan"></a> [cloudwan](#module\_cloudwan) | aws-ia/cloudwan/aws | = 0.0.6 |
+| <a name="module_anfw_ireland"></a> [anfw\_ireland](#module\_anfw\_ireland) | aws-ia/networkfirewall/aws | 0.0.2 |
+| <a name="module_anfw_nvirginia"></a> [anfw\_nvirginia](#module\_anfw\_nvirginia) | aws-ia/networkfirewall/aws | 0.0.2 |
 | <a name="module_compute_ireland"></a> [compute\_ireland](#module\_compute\_ireland) | ./modules/compute | n/a |
 | <a name="module_compute_nvirginia"></a> [compute\_nvirginia](#module\_compute\_nvirginia) | ./modules/compute | n/a |
 | <a name="module_iam"></a> [iam](#module\_iam) | ./modules/iam | n/a |
-| <a name="module_ireland_inspection_cwattachment"></a> [ireland\_inspection\_cwattachment](#module\_ireland\_inspection\_cwattachment) | ./modules/cloudwan_attachment | n/a |
-| <a name="module_ireland_inspection_vpc"></a> [ireland\_inspection\_vpc](#module\_ireland\_inspection\_vpc) | aws-ia/vpc/aws | = 2.4.0 |
-| <a name="module_ireland_spoke_cwattachments"></a> [ireland\_spoke\_cwattachments](#module\_ireland\_spoke\_cwattachments) | ./modules/cloudwan_attachment | n/a |
-| <a name="module_ireland_spoke_vpcs"></a> [ireland\_spoke\_vpcs](#module\_ireland\_spoke\_vpcs) | aws-ia/vpc/aws | = 2.4.0 |
+| <a name="module_ireland_inspection_vpc"></a> [ireland\_inspection\_vpc](#module\_ireland\_inspection\_vpc) | aws-ia/vpc/aws | = 3.1.0 |
+| <a name="module_ireland_spoke_vpcs"></a> [ireland\_spoke\_vpcs](#module\_ireland\_spoke\_vpcs) | aws-ia/vpc/aws | = 3.1.0 |
 | <a name="module_kms_ireland"></a> [kms\_ireland](#module\_kms\_ireland) | ./modules/kms | n/a |
 | <a name="module_kms_nvirginia"></a> [kms\_nvirginia](#module\_kms\_nvirginia) | ./modules/kms | n/a |
-| <a name="module_nvirginia_inspection_cwattachment"></a> [nvirginia\_inspection\_cwattachment](#module\_nvirginia\_inspection\_cwattachment) | ./modules/cloudwan_attachment | n/a |
-| <a name="module_nvirginia_inspection_vpc"></a> [nvirginia\_inspection\_vpc](#module\_nvirginia\_inspection\_vpc) | aws-ia/vpc/aws | = 2.4.0 |
-| <a name="module_nvirginia_spoke_cwattachments"></a> [nvirginia\_spoke\_cwattachments](#module\_nvirginia\_spoke\_cwattachments) | ./modules/cloudwan_attachment | n/a |
-| <a name="module_nvirginia_spoke_vpcs"></a> [nvirginia\_spoke\_vpcs](#module\_nvirginia\_spoke\_vpcs) | aws-ia/vpc/aws | = 2.4.0 |
+| <a name="module_nvirginia_inspection_vpc"></a> [nvirginia\_inspection\_vpc](#module\_nvirginia\_inspection\_vpc) | aws-ia/vpc/aws | = 3.1.0 |
+| <a name="module_nvirginia_spoke_vpcs"></a> [nvirginia\_spoke\_vpcs](#module\_nvirginia\_spoke\_vpcs) | aws-ia/vpc/aws | = 3.1.0 |
 | <a name="module_vpc_endpoints_ireland"></a> [vpc\_endpoints\_ireland](#module\_vpc\_endpoints\_ireland) | ./modules/vpc_endpoints | n/a |
 | <a name="module_vpc_endpoints_nvirginia"></a> [vpc\_endpoints\_nvirginia](#module\_vpc\_endpoints\_nvirginia) | ./modules/vpc_endpoints | n/a |
 
@@ -195,12 +191,15 @@ This library is licensed under the MIT-0 License. See the LICENSE file.
 | [aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_nvirginia](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
 | [aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_ireland](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
 | [aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_nvirginia](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
+| [awscc_networkmanager_core_network.core_network](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/networkmanager_core_network) | resource |
+| [awscc_networkmanager_global_network.global_network](https://registry.terraform.io/providers/hashicorp/awscc/latest/docs/resources/networkmanager_global_network) | resource |
 | [aws_networkmanager_core_network_policy_document.core_nw_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
+| <a name="input_accept_attachments"></a> [accept\_attachments](#input\_accept\_attachments) | Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy). | `bool` | `true` | no |
 | <a name="input_aws_regions"></a> [aws\_regions](#input\_aws\_regions) | AWS regions to spin up resources. | `map(string)` | <pre>{<br>  "ireland": "eu-west-1",<br>  "north_virginia": "us-east-1"<br>}</pre> | no |
 | <a name="input_ireland_inspection_vpc"></a> [ireland\_inspection\_vpc](#input\_ireland\_inspection\_vpc) | Information about the Inspection VPC to create in eu-west-1. | `any` | <pre>{<br>  "cidr_block": "100.64.0.0/16",<br>  "cwan_subnet_cidrs": [<br>    "100.64.0.64/28",<br>    "100.64.0.80/28"<br>  ],<br>  "inspection_subnet_cidrs": [<br>    "100.64.0.32/28",<br>    "100.64.0.48/28"<br>  ],<br>  "name": "inspection-eu-west-1",<br>  "number_azs": 2,<br>  "public_subnet_cidrs": [<br>    "100.64.0.0/28",<br>    "100.64.0.16/28"<br>  ]<br>}</pre> | no |
 | <a name="input_ireland_spoke_vpcs"></a> [ireland\_spoke\_vpcs](#input\_ireland\_spoke\_vpcs) | Information about the VPCs to create in eu-west-1. | `any` | <pre>{<br>  "non-prod": {<br>    "cidr_block": "10.11.0.0/24",<br>    "cwan_subnet_cidrs": [<br>      "10.11.0.64/28",<br>      "10.11.0.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.11.0.0/28",<br>      "10.11.0.16/28"<br>    ],<br>    "instance_type": "t2.micro",<br>    "name": "non-prod-eu-west-1",<br>    "number_azs": 2,<br>    "private_subnet_cidrs": [<br>      "10.11.0.32/28",<br>      "10.11.0.48/28"<br>    ],<br>    "type": "nonprod"<br>  },<br>  "prod": {<br>    "cidr_block": "10.1.0.0/24",<br>    "cwan_subnet_cidrs": [<br>      "10.1.0.64/28",<br>      "10.1.0.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.1.0.0/28",<br>      "10.1.0.16/28"<br>    ],<br>    "instance_type": "t2.micro",<br>    "name": "prod-eu-west-1",<br>    "number_azs": 2,<br>    "private_subnet_cidrs": [<br>      "10.1.0.32/28",<br>      "10.1.0.48/28"<br>    ],<br>    "type": "prod"<br>  }<br>}</pre> | no |

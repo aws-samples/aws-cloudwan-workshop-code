@@ -7,7 +7,7 @@
 data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   core_network_configuration {
     vpn_ecmp_support = false
-    asn_ranges       = ["64512-64555"]
+    asn_ranges       = ["64512-64520"]
 
     edge_locations {
       location = "us-east-1"

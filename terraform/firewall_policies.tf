@@ -4,8 +4,8 @@
 # --- root/firewall_policies.tf ---
 
 # Firewall Policy to apply in N. Virginia (us-east-1)
-resource "aws_networkfirewall_firewall_policy" "nvirginia_fwpolicy" {
-  provider = aws.awsnvirginia
+resource "aws_networkfirewall_firewall_policy" "oregon_fwpolicy" {
+  provider = aws.awsoregon
 
   name = "firewall-policy-cloudwan"
 
@@ -13,16 +13,16 @@ resource "aws_networkfirewall_firewall_policy" "nvirginia_fwpolicy" {
     stateless_default_actions          = ["aws:forward_to_sfe"]
     stateless_fragment_default_actions = ["aws:forward_to_sfe"]
     stateful_rule_group_reference {
-      resource_arn = aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_nvirginia.arn
+      resource_arn = aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_oregon.arn
     }
     stateful_rule_group_reference {
-      resource_arn = aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_nvirginia.arn
+      resource_arn = aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_oregon.arn
     }
   }
 }
 
-resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_nvirginia" {
-  provider = aws.awsnvirginia
+resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_oregon" {
+  provider = aws.awsoregon
 
   capacity = 100
   name     = "icmp-alert"
@@ -49,8 +49,8 @@ resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_nvirgi
 
 }
 
-resource "aws_networkfirewall_rule_group" "domain_allow_stateful_rule_group_nvirginia" {
-  provider = aws.awsnvirginia
+resource "aws_networkfirewall_rule_group" "domain_allow_stateful_rule_group_oregon" {
+  provider = aws.awsoregon
 
   capacity = 100
   name     = "domain-allow"
@@ -75,9 +75,9 @@ resource "aws_networkfirewall_rule_group" "domain_allow_stateful_rule_group_nvir
   }
 }
 
-# Firewall Policy to apply in Ireland (eu-west-1)
-resource "aws_networkfirewall_firewall_policy" "ireland_fwpolicy" {
-  provider = aws.awsireland
+# Firewall Policy to apply in Stockholm (eu-north-1)
+resource "aws_networkfirewall_firewall_policy" "stockholm_fwpolicy" {
+  provider = aws.awsstockholm
 
   name = "firewall-policy-cloudwan"
 
@@ -85,16 +85,16 @@ resource "aws_networkfirewall_firewall_policy" "ireland_fwpolicy" {
     stateless_default_actions          = ["aws:forward_to_sfe"]
     stateless_fragment_default_actions = ["aws:forward_to_sfe"]
     stateful_rule_group_reference {
-      resource_arn = aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_ireland.arn
+      resource_arn = aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_stockholm.arn
     }
     stateful_rule_group_reference {
-      resource_arn = aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_ireland.arn
+      resource_arn = aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_stockholm.arn
     }
   }
 }
 
-resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_ireland" {
-  provider = aws.awsireland
+resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_stockholm" {
+  provider = aws.awsstockholm
 
   capacity = 100
   name     = "icmp-alert"
@@ -121,8 +121,8 @@ resource "aws_networkfirewall_rule_group" "icmp_alert_stateful_rule_group_irelan
 
 }
 
-resource "aws_networkfirewall_rule_group" "domain_allow_stateful_rule_group_ireland" {
-  provider = aws.awsireland
+resource "aws_networkfirewall_rule_group" "domain_allow_stateful_rule_group_stockholm" {
+  provider = aws.awsstockholm
 
   capacity = 100
   name     = "domain-allow"

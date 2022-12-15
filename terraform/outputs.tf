@@ -6,13 +6,15 @@
 output "vpcs" {
   description = "VPCs created."
   value = {
-    n_virginia = {
-      spoke      = { for k, v in module.nvirginia_spoke_vpcs : k => v.vpc_attributes.id }
-      inspection = module.nvirginia_inspection_vpc.vpc_attributes.id
+    oregon = {
+      spoke      = { for k, v in module.oregon_spoke_vpcs : k => v.vpc_attributes.id }
+      inspection = module.oregon_inspection_vpc.vpc_attributes.id
+      legacy     = module.oregon_legacy_vpc.vpc_attributes.id
     }
-    ireland = {
-      spoke      = { for k, v in module.ireland_spoke_vpcs : k => v.vpc_attributes.id }
-      inspection = module.ireland_inspection_vpc.vpc_attributes.id
+    stockholm = {
+      spoke      = { for k, v in module.stockholm_spoke_vpcs : k => v.vpc_attributes.id }
+      inspection = module.stockholm_inspection_vpc.vpc_attributes.id
+      legacy     = module.stockholm_legacy_vpc.vpc_attributes.id
     }
   }
 }
@@ -20,32 +22,27 @@ output "vpcs" {
 output "cloud_wan" {
   description = "AWS Cloud WAN resources."
   value = {
-    core_network_id = awscc_networkmanager_core_network.core_network.core_network_id
+    global_network_id = aws_networkmanager_global_network.global_network.id
+    core_network_id   = awscc_networkmanager_core_network.core_network.core_network_id
     attachments = {
-      n_virginia = {
-        spoke      = { for k, v in module.nvirginia_spoke_vpcs : k => v.core_network_attachment.id }
-        inspection = module.nvirginia_inspection_vpc.core_network_attachment.id
+      oregon = {
+        # spoke      = { for k, v in module.oregon_spoke_vpcs : k => v.core_network_attachment.id }
+        inspection = module.oregon_inspection_vpc.core_network_attachment.id
+        # tgw_rt     = aws_networkmanager_transit_gateway_route_table_attachment.oregon_cwan_tgw_rt_attachment.id
       }
-      ireland = {
-        spoke      = { for k, v in module.ireland_spoke_vpcs : k => v.core_network_attachment.id }
-        inspection = module.ireland_inspection_vpc.core_network_attachment.id
+      stockholm = {
+        # spoke      = { for k, v in module.stockholm_spoke_vpcs : k => v.core_network_attachment.id }
+        inspection = module.stockholm_inspection_vpc.core_network_attachment.id
+        # tgw_rt     = aws_networkmanager_transit_gateway_route_table_attachment.stockholm_cwan_tgw_rt_attachment.id
       }
     }
   }
 }
 
-output "ec2_instances" {
-  description = "List of EC2 instances created."
+output "transit_gateway" {
+  description = "AWS Transit Gateway resources."
   value = {
-    n_virginia = { for k, v in module.compute_nvirginia : k => v.ec2_instances.*.id }
-    ireland    = { for k, v in module.compute_ireland : k => v.ec2_instances.*.id }
-  }
-}
-
-output "vpc_endpoints" {
-  description = "VPC endpoints created."
-  value = {
-    n_virginia = { for k, v in module.vpc_endpoints_nvirginia : k => v.endpoint_ids }
-    ireland    = { for k, v in module.vpc_endpoints_ireland : k => v.endpoint_ids }
+    oregon    = aws_ec2_transit_gateway.oregon_tgw.id
+    stockholm = aws_ec2_transit_gateway.stockholm_tgw.id
   }
 }

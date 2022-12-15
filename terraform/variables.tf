@@ -17,101 +17,134 @@ variable "aws_regions" {
   description = "AWS regions to spin up resources."
 
   default = {
-    north_virginia = "us-east-1"
-    ireland        = "eu-west-1"
+    oregon    = "us-west-2"
+    stockholm = "eu-north-1"
   }
 }
 
-# Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy)
-variable "accept_attachments" {
-  type        = bool
-  description = "Indicates if the VPC attachments are accepted - for those segments that require acceptance (as per Cloud WAN policy)."
+# Transit Gateway ASNs
+variable "transit_gateway_asn" {
+  type        = map(number)
+  description = "Transit Gateway ASNs."
 
-  default = true
+  default = {
+    oregon    = 64515
+    stockholm = 64516
+  }
 }
 
-# Definition of the VPCs to create in N. Virginia Region
-variable "nvirginia_spoke_vpcs" {
+# Definition of the VPCs to create in Oregon Region
+variable "oregon_spoke_vpcs" {
   type        = any
-  description = "Information about the VPCs to create in us-east-1."
+  description = "Information about the VPCs to create in us-west-2."
 
   default = {
     "non-prod" = {
       type                  = "nonprod"
-      name                  = "non-prod-us-east-1"
+      name                  = "non-prod-us-west-2"
       number_azs            = 2
-      cidr_block            = "10.10.0.0/24"
-      endpoint_subnet_cidrs = ["10.10.0.0/28", "10.10.0.16/28"]
-      private_subnet_cidrs  = ["10.10.0.32/28", "10.10.0.48/28"]
-      cwan_subnet_cidrs     = ["10.10.0.64/28", "10.10.0.80/28"]
-      instance_type         = "t2.micro"
+      cidr_block            = "10.1.0.0/16"
+      workload_subnet_cidrs = ["10.1.0.0/24", "10.1.1.0/24", "10.1.2.0/24"]
+      endpoint_subnet_cidrs = ["10.1.3.0/28", "10.1.3.16/28", "10.1.3.32/28"]
+      cnetwork_subnet_cidrs = ["10.1.3.48/28", "10.1.3.64/28", "10.1.3.80/28"]
+      instance_type         = "t3.micro"
     }
     "prod" = {
       type                  = "prod"
-      name                  = "prod-us-east-1"
+      name                  = "prod-us-west-2"
       number_azs            = 2
-      cidr_block            = "10.0.0.0/24"
-      endpoint_subnet_cidrs = ["10.0.0.0/28", "10.0.0.16/28"]
-      private_subnet_cidrs  = ["10.0.0.32/28", "10.0.0.48/28"]
-      cwan_subnet_cidrs     = ["10.0.0.64/28", "10.0.0.80/28"]
-      instance_type         = "t2.micro"
+      cidr_block            = "10.0.0.0/16"
+      workload_subnet_cidrs = ["10.0.0.0/24", "10.0.1.0/24", "10.0.2.0/24"]
+      endpoint_subnet_cidrs = ["10.0.3.0/28", "10.0.3.16/28", "10.0.3.32/28"]
+      cnetwork_subnet_cidrs = ["10.0.3.48/28", "10.0.3.64/28", "10.0.3.80/28"]
+      instance_type         = "t3.micro"
     }
   }
 }
 
-variable "nvirginia_inspection_vpc" {
+variable "oregon_inspection_vpc" {
   type        = any
-  description = "Information about the Inspection VPC to create in us-east-1."
+  description = "Information about the Inspection VPC to create in us-west-2."
 
   default = {
-    name                    = "inspection-us-east-1"
-    cidr_block              = "100.64.0.0/24"
-    number_azs              = 2
-    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28"]
-    inspection_subnet_cidrs = ["100.64.0.32/28", "100.64.0.48/28"]
-    cwan_subnet_cidrs       = ["100.64.0.64/28", "100.64.0.80/28"]
-  }
-}
-
-# Definition of the VPCs to create in Ireland Region
-variable "ireland_spoke_vpcs" {
-  type        = any
-  description = "Information about the VPCs to create in eu-west-1."
-
-  default = {
-    "non-prod" = {
-      type                  = "nonprod"
-      name                  = "non-prod-eu-west-1"
-      number_azs            = 2
-      cidr_block            = "10.11.0.0/24"
-      endpoint_subnet_cidrs = ["10.11.0.0/28", "10.11.0.16/28"]
-      private_subnet_cidrs  = ["10.11.0.32/28", "10.11.0.48/28"]
-      cwan_subnet_cidrs     = ["10.11.0.64/28", "10.11.0.80/28"]
-      instance_type         = "t2.micro"
-    }
-    "prod" = {
-      type                  = "prod"
-      name                  = "prod-eu-west-1"
-      number_azs            = 2
-      cidr_block            = "10.1.0.0/24"
-      endpoint_subnet_cidrs = ["10.1.0.0/28", "10.1.0.16/28"]
-      private_subnet_cidrs  = ["10.1.0.32/28", "10.1.0.48/28"]
-      cwan_subnet_cidrs     = ["10.1.0.64/28", "10.1.0.80/28"]
-      instance_type         = "t2.micro"
-    }
-  }
-}
-
-variable "ireland_inspection_vpc" {
-  type        = any
-  description = "Information about the Inspection VPC to create in eu-west-1."
-
-  default = {
-    name                    = "inspection-eu-west-1"
+    name                    = "inspection-us-west-2"
     cidr_block              = "100.64.0.0/16"
+    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28", "100.64.0.32/28"]
+    inspection_subnet_cidrs = ["100.64.0.48/28", "100.64.0.64/28", "100.64.0.80/28"]
+    cnetwork_subnet_cidrs   = ["100.64.0.96/28", "100.64.0.112/28", "100.64.0.128/28"]
     number_azs              = 2
-    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28"]
-    inspection_subnet_cidrs = ["100.64.0.32/28", "100.64.0.48/28"]
-    cwan_subnet_cidrs       = ["100.64.0.64/28", "100.64.0.80/28"]
+  }
+}
+
+variable "oregon_legacy_vpc" {
+  type        = any
+  description = "Information about the Legacy VPC to create in us-west-2."
+
+  default = {
+    name                  = "legacy-us-west-2"
+    cidr_block            = "10.2.0.0/16"
+    workload_subnet_cidrs = ["10.2.0.0/24", "10.2.1.0/24", "10.2.2.0/24"]
+    endpoint_subnet_cidrs = ["10.2.3.0/28", "10.2.3.16/28", "10.2.3.32/28"]
+    tgw_subnet_cidrs      = ["10.2.3.48/28", "10.2.3.64/28", "10.2.3.80/28"]
+    number_azs            = 2
+    instance_type         = "t3.micro"
+  }
+}
+
+# Definition of the VPCs to create in Stockholm Region
+variable "stockholm_spoke_vpcs" {
+  type        = any
+  description = "Information about the VPCs to create in eu-north-1."
+
+  default = {
+    "non-prod" = {
+      type                  = "nonprod"
+      name                  = "non-prod-eu-north-1"
+      number_azs            = 2
+      cidr_block            = "10.11.0.0/16"
+      workload_subnet_cidrs = ["10.11.0.0/24", "10.11.1.0/24", "10.11.2.0/24"]
+      endpoint_subnet_cidrs = ["10.11.3.0/28", "10.11.3.16/28", "10.11.3.32/28"]
+      cnetwork_subnet_cidrs = ["10.11.3.48/28", "10.11.3.64/28", "10.11.3.80/28"]
+      instance_type         = "t3.micro"
+    }
+    "prod" = {
+      type                  = "prod"
+      name                  = "prod-eu-north-1"
+      number_azs            = 2
+      cidr_block            = "10.10.0.0/16"
+      workload_subnet_cidrs = ["10.10.0.0/24", "10.10.1.0/24", "10.10.2.0/24"]
+      endpoint_subnet_cidrs = ["10.10.3.0/28", "10.10.3.16/28", "10.10.3.32/28"]
+      cnetwork_subnet_cidrs = ["10.10.3.48/28", "10.10.3.64/28", "10.10.3.80/28"]
+      instance_type         = "t3.micro"
+    }
+  }
+}
+
+variable "stockholm_inspection_vpc" {
+  type        = any
+  description = "Information about the Inspection VPC to create in eu-north-1."
+
+  default = {
+    name                    = "inspection-eu-north-1"
+    cidr_block              = "100.64.0.0/16"
+    public_subnet_cidrs     = ["100.64.0.0/28", "100.64.0.16/28", "100.64.0.32/28"]
+    inspection_subnet_cidrs = ["100.64.0.48/28", "100.64.0.64/28", "100.64.0.80/28"]
+    cnetwork_subnet_cidrs   = ["100.64.0.96/28", "100.64.0.112/28", "100.64.0.128/28"]
+    number_azs              = 2
+  }
+}
+
+variable "stockholm_legacy_vpc" {
+  type        = any
+  description = "Information about the Legacy VPC to create in us-west-2."
+
+  default = {
+    name                  = "legacy-us-west-2"
+    cidr_block            = "10.12.0.0/16"
+    workload_subnet_cidrs = ["10.12.0.0/24", "10.12.1.0/24", "10.12.2.0/24"]
+    endpoint_subnet_cidrs = ["10.12.3.0/28", "10.12.3.16/28", "10.12.3.32/28"]
+    tgw_subnet_cidrs      = ["10.12.3.48/28", "10.12.3.64/28", "10.12.3.80/28"]
+    number_azs            = 2
+    instance_type         = "t3.micro"
   }
 }

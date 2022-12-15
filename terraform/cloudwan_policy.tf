@@ -7,35 +7,99 @@
 data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   core_network_configuration {
     vpn_ecmp_support = false
-    asn_ranges       = ["64512-64520"]
+    asn_ranges       = ["64520-65534"]
 
-    edge_locations {
-      location = "us-east-1"
-      asn      = 64512
-    }
-    edge_locations {
-      location = "eu-west-1"
-      asn      = 64513
-    }
+    edge_locations { location = var.aws_regions.oregon }
+    edge_locations { location = var.aws_regions.stockholm }
   }
 
   segments {
-    name                          = "shared"
-    description                   = "Segment for shared services"
+    name = "prod"
+    edge_locations = [
+      var.aws_regions.oregon,
+      var.aws_regions.stockholm
+    ]
+    require_attachment_acceptance = false
+    isolate_attachments           = true
+  }
+
+  segments {
+    name = "nonprod"
+    edge_locations = [
+      var.aws_regions.oregon,
+      var.aws_regions.stockholm
+    ]
     require_attachment_acceptance = false
   }
 
   segments {
-    name                          = "prod"
-    description                   = "Segment for prod services"
-    require_attachment_acceptance = true
+    name = "sharedservices"
   }
 
-  segments {
-    name                          = "nonprod"
-    description                   = "Segment for non-prod services"
-    require_attachment_acceptance = false
-  }
+  # segments {
+  #   name = "legacy"
+  #   edge_locations = [
+  #     var.aws_regions.oregon,
+  #     var.aws_regions.stockholm
+  #   ]
+  #   require_attachment_acceptance = false
+  # }
+
+  # attachment_policies {
+  #   rule_number     = 100
+  #   condition_logic = "or"
+
+  #   conditions {
+  #     type = "tag-exists"
+  #     key  = "prod"
+  #   }
+  #   action {
+  #     association_method = "constant"
+  #     segment            = "prod"
+  #   }
+  # }
+
+  # attachment_policies {
+  #   rule_number     = 200
+  #   condition_logic = "or"
+
+  #   conditions {
+  #     type = "tag-exists"
+  #     key  = "nonprod"
+  #   }
+  #   action {
+  #     association_method = "constant"
+  #     segment            = "nonprod"
+  #   }
+  # }
+
+  # attachment_policies {
+  #   rule_number     = 300
+  #   condition_logic = "or"
+
+  #   conditions {
+  #     type = "tag-exists"
+  #     key  = "sharedservices"
+  #   }
+  #   action {
+  #     association_method = "constant"
+  #     segment            = "sharedservices"
+  #   }
+  # }
+
+  # attachment_policies {
+  #   rule_number     = 400
+  #   condition_logic = "or"
+
+  #   conditions {
+  #     type = "tag-exists"
+  #     key  = "legacy"
+  #   }
+  #   action {
+  #     association_method = "constant"
+  #     segment            = "legacy"
+  #   }
+  # }
 
   # segment_actions {
   #   action  = "create-route"
@@ -58,59 +122,21 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   #   ]
   # }
 
-  segment_actions {
-    action     = "share"
-    mode       = "attachment-route"
-    segment    = "shared"
-    share_with = ["*"]
-  }
+  # segment_actions {
+  #   action     = "share"
+  #   mode       = "attachment-route"
+  #   segment    = "sharedservices"
+  #   share_with = ["*"]
+  # }
 
-  attachment_policies {
-    rule_number     = 100
-    condition_logic = "or"
-
-    conditions {
-      type     = "tag-value"
-      operator = "equals"
-      key      = "env"
-      value    = "nonprod"
-    }
-    action {
-      association_method = "constant"
-      segment            = "nonprod"
-    }
-  }
-
-  attachment_policies {
-    rule_number     = 200
-    condition_logic = "or"
-
-    conditions {
-      type     = "tag-value"
-      operator = "equals"
-      key      = "env"
-      value    = "prod"
-    }
-    action {
-      association_method = "constant"
-      segment            = "prod"
-    }
-  }
-
-  attachment_policies {
-    rule_number     = 300
-    condition_logic = "or"
-
-    conditions {
-      type     = "tag-value"
-      operator = "equals"
-      key      = "env"
-      value    = "inspection"
-    }
-    action {
-      association_method = "constant"
-      segment            = "shared"
-    }
-  }
+  # segment_actions {
+  #   action  = "share"
+  #   mode    = "attachment-route"
+  #   segment = "legacy"
+  #   share_with = [
+  #     "prod",
+  #     "nonprod"
+  #   ]
+  # }
 }
 

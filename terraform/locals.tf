@@ -2,7 +2,7 @@
    SPDX-License-Identifier: MIT-0 */
 
 locals {
-  north_virginia = {
+  oregon = {
     security_groups = {
       instance = {
         name        = "instance_security_group"
@@ -53,24 +53,24 @@ locals {
 
     endpoint_service_names = {
       ssm = {
-        name        = "com.amazonaws.${var.aws_regions.north_virginia}.ssm"
+        name        = "com.amazonaws.${var.aws_regions.oregon}.ssm"
         type        = "Interface"
         private_dns = true
       }
       ssmmessages = {
-        name        = "com.amazonaws.${var.aws_regions.north_virginia}.ssmmessages"
+        name        = "com.amazonaws.${var.aws_regions.oregon}.ssmmessages"
         type        = "Interface"
         private_dns = true
       }
       ec2messages = {
-        name        = "com.amazonaws.${var.aws_regions.north_virginia}.ec2messages"
+        name        = "com.amazonaws.${var.aws_regions.oregon}.ec2messages"
         type        = "Interface"
         private_dns = true
       }
     }
   }
 
-  ireland = {
+  stockholm = {
     security_groups = {
       instance = {
         name        = "instance_security_group"
@@ -121,17 +121,17 @@ locals {
 
     endpoint_service_names = {
       ssm = {
-        name        = "com.amazonaws.${var.aws_regions.ireland}.ssm"
+        name        = "com.amazonaws.${var.aws_regions.stockholm}.ssm"
         type        = "Interface"
         private_dns = true
       }
       ssmmessages = {
-        name        = "com.amazonaws.${var.aws_regions.ireland}.ssmmessages"
+        name        = "com.amazonaws.${var.aws_regions.stockholm}.ssmmessages"
         type        = "Interface"
         private_dns = true
       }
       ec2messages = {
-        name        = "com.amazonaws.${var.aws_regions.ireland}.ec2messages"
+        name        = "com.amazonaws.${var.aws_regions.stockholm}.ec2messages"
         type        = "Interface"
         private_dns = true
       }

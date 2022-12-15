@@ -8,7 +8,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 3.73.0"
+      version = ">= 4.46.0"
     }
     awscc = {
       source  = "hashicorp/awscc"
@@ -17,10 +17,10 @@ terraform {
   }
 }
 
-# Provider definitios for N. Virginia Region
+# Provider definitios for Oregon Region
 provider "aws" {
-  region = var.aws_regions.north_virginia
-  alias  = "awsnvirginia"
+  region = var.aws_regions.oregon
+  alias  = "awsoregon"
 
   default_tags {
     tags = {
@@ -31,14 +31,14 @@ provider "aws" {
 }
 
 provider "awscc" {
-  region = var.aws_regions.north_virginia
-  alias  = "awsccnvirginia"
+  region = var.aws_regions.oregon
+  alias  = "awsccoregon"
 }
 
-# Provider definitios for Ireland Region
+# Provider definitios for Stockholm Region
 provider "aws" {
-  region = var.aws_regions.ireland
-  alias  = "awsireland"
+  region = var.aws_regions.stockholm
+  alias  = "awsstockholm"
 
   default_tags {
     tags = {
@@ -49,6 +49,6 @@ provider "aws" {
 }
 
 provider "awscc" {
-  region = var.aws_regions.ireland
-  alias  = "awsccireland"
+  region = var.aws_regions.stockholm
+  alias  = "awsccstockholm"
 }

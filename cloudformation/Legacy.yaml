@@ -1,0 +1,1052 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Legacy infrastructure
+
+Parameters:
+  LatestAmiId:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+  CoreNetworkId:
+    Type: String
+    Default: ""
+  CreateCWANPeering:
+    Type: String
+    Description: Create the Cloud WAN peering to TGW
+    Default: "false"
+    AllowedValues: [true, false]
+  CreateCWANAttachment:
+    Type: String
+    Description: Create the TGW Route Table attachment
+    Default: "false"
+    AllowedValues: [true, false]
+  CreateVPCRoutes:
+    Type: String
+    Description: Create the VPC routes to Transit Gateway
+    Default: "false"
+    AllowedValues: [true, false]
+
+Conditions:
+  CreatePeering: !And
+    - !Equals [!Ref CreateCWANPeering, 'true']
+    - !Not [!Equals [!Ref CoreNetworkId, ""]]
+  CreateAttachment: !And
+    - !Equals [!Ref CreateCWANPeering, 'true']
+    - !Equals [!Ref CreateCWANAttachment, 'true']
+    - !Not [!Equals [!Ref CoreNetworkId, ""]]
+  CreateRoutes: !Equals [!Ref CreateVPCRoutes, 'true']
+
+Mappings:
+  RegionMap:
+    us-west-2:
+      legacy: 10.2.0.0/16
+      tgwasn: 64515
+    eu-north-1:
+      legacy: 10.12.0.0/16
+      tgwasn: 64516
+
+Resources:
+# ---------- LEGACY VPC ----------
+  # VPC resource
+  VPCLegacy:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W60
+            reason: VPC Flow Logs not required for workshop
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap
+        - RegionMap
+        - !Ref "AWS::Region"
+        - legacy
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "vpc"
+
+ # Subnets 
+  VPCLegacySubnetWorkload1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [0, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "workload-subnet-1"
+  
+  VPCLegacySubnetWorkload2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [1, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "workload-subnet-2"
+
+  VPCLegacySubnetEndpoints1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [2, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "endpoints-subnet-1"
+
+  VPCLegacySubnetEndpoints2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [3, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "endpoints-subnet-2"
+
+  VPCLegacySubnetTGW1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [4, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "tgw-subnet-1"
+
+  VPCLegacySubnetTGW2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCLegacy
+      CidrBlock: !Select [5, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "tgw-subnet-2"
+
+  # Route Tables
+  VPCLegacyRouteTableWorkload1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "workload-rt-1"
+  
+  VPCLegacyWorkloadSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableWorkload1
+      SubnetId: !Ref VPCLegacySubnetWorkload1
+
+  VPCLegacyRouteTableWorkload2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "workload-rt-2"
+  
+  VPCLegacyWorkloadSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableWorkload2
+      SubnetId: !Ref VPCLegacySubnetWorkload2
+
+  VPCLegacyRouteTableEndpoints1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "endpoints-rt-1"
+  
+  VPCLegacyEndpointsSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableEndpoints1
+      SubnetId: !Ref VPCLegacySubnetEndpoints1
+
+  VPCLegacyRouteTableEndpoints2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "endpoints-rt-2"
+  
+  VPCLegacyEndpointsSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableEndpoints2
+      SubnetId: !Ref VPCLegacySubnetEndpoints2
+
+  VPCLegacyRouteTableTGW1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "tgw-rt-1"
+  
+  VPCLegacyTGWSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableTGW1
+      SubnetId: !Ref VPCLegacySubnetTGW1
+
+  VPCLegacyRouteTableTGW2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCLegacy
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "legacy"
+              - !Ref AWS::Region
+              - "tgw-rt-2"
+  
+  VPCLegacyTGWSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCLegacyRouteTableTGW2
+      SubnetId: !Ref VPCLegacySubnetTGW2
+
+  # Transit Gateway Attachment
+  VPCLegacyTGWAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref VPCLegacy
+      SubnetIds:
+        - !Ref VPCLegacySubnetTGW1
+        - !Ref VPCLegacySubnetTGW2
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "tgw"
+              - "attachment"
+              - !Ref AWS::Region
+
+  # Route from the Workload subnets to the TGW Attachment
+  VPCLegacyRouteWorkloadSubnet1:
+    Condition: CreateRoutes
+    Type: AWS::EC2::Route
+    DependsOn: VPCLegacyTGWAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref VPCLegacyRouteTableWorkload1
+      TransitGatewayId: !Ref TransitGateway
+
+  VPCLegacyRouteWorkloadSubnet2:
+    Condition: CreateRoutes
+    Type: AWS::EC2::Route
+    DependsOn: VPCLegacyTGWAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId: !Ref VPCLegacyRouteTableWorkload2
+      TransitGatewayId: !Ref TransitGateway
+
+  # Security Groups (Instance and VPC endpoint)
+  VPCLegacyInstanceSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Legacy VPC - Instance Security Group
+      VpcId: !Ref VPCLegacy
+      SecurityGroupIngress:
+        - Description: Allowing ICMP traffic
+          IpProtocol: icmp
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: 10.0.0.0/8
+  
+  VPCLegacyEndpointsSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Non-Production VPC - VPC Endpoints Security Group
+      VpcId: !Ref VPCLegacy
+      SecurityGroupIngress:
+        - Description: Allowing HTTPS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref VPCLegacyInstanceSecurityGroup
+  
+  # EC2 Instances
+  EC2InstanceLegacyWorkload1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - Ref: VPCLegacyInstanceSecurityGroup
+      SubnetId:
+        Ref: VPCLegacySubnetWorkload1
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileLegacy
+      Tags:
+        - Key: Name
+          Value: "Legacy-Instance-1"
+  
+  EC2InstanceLegacyWorkload2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - Ref: VPCLegacyInstanceSecurityGroup
+      SubnetId:
+        Ref: VPCLegacySubnetWorkload2
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileLegacy
+      Tags:
+        - Key: Name
+          Value: "Legacy-Instance-2"
+  
+  # SSM Endpoints
+  SSMLegacyVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPCLegacy
+      SubnetIds:
+        - !Ref VPCLegacySubnetEndpoints1
+        - !Ref VPCLegacySubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCLegacyEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  SSMMessagesLegacyVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPCLegacy
+      SubnetIds:
+        - !Ref VPCLegacySubnetEndpoints1
+        - !Ref VPCLegacySubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCLegacyEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  EC2MessagesLegacyVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPCLegacy
+      SubnetIds:
+        - !Ref VPCLegacySubnetEndpoints1
+        - !Ref VPCLegacySubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCLegacyEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+# ---------- TRANSIT GATEWAY ----------
+  # Resource
+  TransitGateway:
+    Type: AWS::EC2::TransitGateway
+    Properties: 
+      AmazonSideAsn: !FindInMap
+        - RegionMap
+        - !Ref "AWS::Region"
+        - tgwasn
+      DefaultRouteTableAssociation: disable
+      DefaultRouteTablePropagation: disable
+      Description: !Join
+        - "-"
+        - - "Transit Gateway"
+          - !Ref AWS::Region
+      Tags: 
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "tgw"
+              - !Ref AWS::Region
+
+  # Route Table
+  TransitGatewayRouteTable:
+    Type: AWS::EC2::TransitGatewayRouteTable
+    Properties: 
+      TransitGatewayId: !Ref TransitGateway
+      Tags: 
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "tgw"
+              - "rt"
+              - !Ref AWS::Region
+
+  # Propagation and Association
+  TransitGatewayRouteTableAssociation:
+    Type: AWS::EC2::TransitGatewayRouteTableAssociation
+    Properties: 
+      TransitGatewayAttachmentId: !Ref VPCLegacyTGWAttachment
+      TransitGatewayRouteTableId: !Ref TransitGatewayRouteTable
+  
+  TransitGatewayRouteTablePropagation:
+    Type: AWS::EC2::TransitGatewayRouteTablePropagation
+    Properties: 
+      TransitGatewayAttachmentId: !Ref VPCLegacyTGWAttachment
+      TransitGatewayRouteTableId: !Ref TransitGatewayRouteTable
+
+# ---------- IAM ROLE (EC2 INSTANCE) ----------
+  # EC2 Instance Role (SSM access)
+  EC2SSMIAMRoleLegacy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
+
+  EC2SSMInstanceProfileLegacy:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EC2SSMIAMRoleLegacy
+
+# ---------- TRANSIT GATEWAY - CLOUD WAN PEERING (CUSTOM RESOURCE) ----------
+  TGWCWANPeering:
+    Condition: CreatePeering
+    Type: Custom::CreatePeering
+    DependsOn:
+      - TransitGateway
+      - PeeringFunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt PeeringFunction.Arn
+      TransitGatewayId: !GetAtt TransitGateway.Id
+      TransitGatewayArn: !Join
+            - ":"
+            - - "arn:aws:ec2"
+              - !Ref AWS::Region
+              - !Ref AWS::AccountId
+              - !Join 
+                - "/"
+                - - "transit-gateway"
+                  - !GetAtt TransitGateway.Id
+      CoreNetworkId: !Ref CoreNetworkId
+ 
+  TGWRTAttachment:
+    Condition: CreateAttachment
+    Type: Custom::CreateTGWRTAttachment
+    DependsOn:
+      - TransitGatewayRouteTable
+      - AttachmentFunctionLogGroup
+      - TGWCWANPeering
+    Properties:
+      ServiceToken: !GetAtt AttachmentFunction.Arn
+      CoreNetworkId: !Ref CoreNetworkId
+      TransitGatewayRouteTableArn: !Join
+        - ":"
+        - - "arn:aws:ec2"
+          - !Ref AWS::Region
+          - !Ref AWS::AccountId
+          - !Join
+            - "/"
+            - - "transit-gateway-route-table"
+              - !Ref TransitGatewayRouteTable
+      PeeringId: !GetAtt TGWCWANPeering.PeeringId
+      TagKey: "legacy"
+      TagValue: "true"
+
+  CustomResourcesRole:
+    Condition: CreatePeering
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Policies:
+        - PolicyName: AllowTGWNetworkManager
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ec2:CreateTransitGatewayPolicyTable"
+                  - "ec2:AssociateTransitGatewayPolicyTable"
+                  - "ec2:DisassociateTransitGatewayPolicyTable"
+                  - "ec2:DeleteTransitGatewayPolicyTable"
+                  - "ec2:DescribeTransitGatewayPolicyTables"
+                  - "ec2:DescribeRegions"
+                  - "ec2:AcceptTransitGatewayPeeringAttachment"
+                  - "ec2:GetTransitGatewayPolicyTableAssociations"
+                  - "ec2:GetTransitGatewayPolicyTableEntries"
+                  - "ec2:CreateTags"
+                  - "networkmanager:CreateTransitGatewayPeering"
+                  - "networkmanager:CreateTransitGatewayRouteTableAttachment"
+                  - "networkmanager:DeleteAttachment"
+                  - "networkmanager:DeletePeering"
+                  - "networkmanager:GetTransitGatewayPeering"
+                  - "networkmanager:GetTransitGatewayRouteTableAttachment"
+                  - "networkmanager:ListAttachments"
+                  - "networkmanager:ListPeerings"
+                  - "networkmanager:TagResource"
+                Resource:
+                  - "*"
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  PeeringFunctionLogGroup:
+    Condition: CreatePeering
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: Encryption not required for this log group
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${PeeringFunction}
+      RetentionInDays: 7
+
+  PeeringFunction:
+    Condition: CreatePeering
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: CWL permissions granted by use of AWSLambdaBasicExecutionRole
+          - id: W89
+            reason: No requirement for this function to be in a VPC
+          - id: W92
+            reason: No requirement to limit simultaneous executions
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Create Peering between Transit Gateway and Cloud WAN
+      Runtime: python3.9
+      Timeout: 900
+      Role: !GetAtt CustomResourcesRole.Arn
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |-
+          import sys
+          import subprocess
+          from pip._internal import main
+
+          # pip3 install - update boto3 to latest version
+          subprocess.call('pip3 install -I -q boto3 -t /tmp/ --no-cache-dir --disable-pip-version-check'.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          sys.path.insert(1, '/tmp/')
+
+          import boto3
+          import os
+          import logging
+          import json
+          import time
+          import cfnresponse
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+
+          log = logging.getLogger("handler")
+          log.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+              try:
+                  log.info("Received event: %s", json.dumps(event))
+                  log.info(boto3.__version__)
+
+                  # We obtain the parameters from the Custom Resource Event
+                  action = event["RequestType"]
+                  tgw_id = event["ResourceProperties"]["TransitGatewayId"]
+                  tgw_arn = event["ResourceProperties"]["TransitGatewayArn"]
+                  core_network_id = event["ResourceProperties"]["CoreNetworkId"]
+                  # We obtain the AWS Region
+                  region = os.environ['AWS_REGION']
+
+                  # boto3 client configuration
+                  my_config = Config(region_name = 'us-west-2')
+                  ec2 = boto3.client("ec2")
+                  nm = boto3.client("networkmanager", config=my_config)
+                  
+                  response = {}
+                  
+                  # Actions to perform if we are creating the resources
+                  if action == "Create":
+                      log.info("Creating peering between transit gateway %s and core network %s", tgw_id, core_network_id)
+                      response = create_peering(ec2, nm, tgw_id, tgw_arn, core_network_id, region)
+                      
+                  if action == "Delete":
+                      log.info("Deleting peering between transit gateway %s and core network %s", tgw_id, core_network_id)
+                      response = delete_peering(ec2, nm, tgw_id, tgw_arn, core_network_id, region)
+                      
+                  if action == "Update":
+                      log.info("Updating peering between tgw %s and core network %s", tgw_id, core_network_id)
+                      # Getting the previous values of the TGW and Core Network
+                      old_tgw_id = event["OldResourceProperties"]["TransitGatewayId"]
+                      old_tgw_arn = event["OldResourceProperties"]["TransitGatewayArn"]
+                      old_core_network_id = event["OldResourceProperties"]["CoreNetworkId"]
+                      # 1) REMOVE THE CURRENT PEERING CONFIGURATION
+                      response = delete_peering(ec2, nm, old_tgw_id, old_tgw_arn, old_core_network_id, region)
+                      # 2) WE CREATE THE NEW PEERING
+                      response = create_peering(ec2, nm, tgw_id, tgw_arn, core_network_id, region)
+                      
+                      
+                  if "Return" in response:
+                      if response["Return"]:
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                          return
+                      cfnresponse.send(
+                          event, context, cfnresponse.FAILED, {}, reason="API request failed"
+                      )
+                      return
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
+                  log.info(response)
+              
+              except:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+          def create_peering(ec2, nm, tgw_id, tgw_arn, core_network_id, region):
+              try:
+                  # Initialization of the response
+                  response = {}
+                  
+                  # Create TGW policy table
+                  tgw_policy_table_id = ec2.create_transit_gateway_policy_table(
+                      TransitGatewayId=tgw_id,
+                      TagSpecifications=[
+                          {
+                              'ResourceType': 'transit-gateway-policy-table',
+                              'Tags': [
+                                  {
+                                      'Key': 'Name',
+                                      'Value': f'tgw-policy-table-{region}'
+                                  },
+                              ]
+                          },
+                      ]
+                  )['TransitGatewayPolicyTable']['TransitGatewayPolicyTableId']
+                  # Adding TGW Policy Table ID in response
+                  response['TransitGatewayPolicyTableId'] = tgw_policy_table_id
+                          
+                  # Create peering between Transit Gateway and Core Network
+                  peering = nm.create_transit_gateway_peering(
+                      CoreNetworkId=core_network_id,
+                      TransitGatewayArn=tgw_arn,
+                      Tags=[
+                          {
+                              'Key': 'Name',
+                              'Value': f'tgw-peering-{region}'
+                          },
+                      ]
+                  )
+                  # We obtain the Attachment ID and state of the peering created
+                  peering_id = peering['TransitGatewayPeering']['Peering']['PeeringId']
+                  peering_state = peering['TransitGatewayPeering']['Peering']['State']
+                  # Waiting for the peering to be available
+                  while peering_state == "CREATING":
+                      time.sleep(5)
+                      peering = nm.get_transit_gateway_peering(PeeringId=peering_id)
+                      peering_state = peering['TransitGatewayPeering']['Peering']['State']
+                  # We get the TGW Attachment ID
+                  peering_tgw_attachment_id = peering['TransitGatewayPeering']['TransitGatewayPeeringAttachmentId']
+                  # Adding Peering ID and TGW Attachment ID (of the peering) in the response
+                  response['PeeringId'] = peering_id
+                  response['PeeringTransitGatewayAttachmentId'] = peering_tgw_attachment_id
+                          
+                  # We associate the Policy Table with the Peering (via the TGW Attachment ID)
+                  association_state = ec2.associate_transit_gateway_policy_table(
+                      TransitGatewayPolicyTableId=tgw_policy_table_id,
+                      TransitGatewayAttachmentId = peering_tgw_attachment_id
+                  )['Association']['State']
+                  # Waiting for the association to be available
+                  while association_state == "associating":
+                      time.sleep(5)
+                      association_state = ec2.get_transit_gateway_policy_table_associations(TransitGatewayPolicyTableId=tgw_policy_table_id)['Associations'][0]['State']
+                          
+                  log.info("EVERYTHING CREATED")
+                  return response
+              
+              except Exception as e:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+          def delete_peering(ec2, nm, tgw_id, tgw_arn, core_network_id, region):
+              try:
+                  # Initialization of the response
+                  response = {}
+                  
+                  # We get the Transit Gateway Policy Table ID
+                  tgw_policy_table_id = ec2.describe_transit_gateway_policy_tables(
+                      Filters=[
+                          {
+                              'Name': 'transit-gateway-id',
+                              'Values': [tgw_id]
+                          },
+                          {
+                              'Name': 'state',
+                              'Values': ['available']
+                          },
+                          {
+                              'Name': 'tag-key',
+                              'Values': ['Name']
+                          },
+                          {
+                              'Name': 'tag-value',
+                              'Values': [f'tgw-policy-table-{region}']
+                          }
+                      ]
+                  )['TransitGatewayPolicyTables'][0]['TransitGatewayPolicyTableId']
+                  # Adding the TGW Policy Table ID in the response
+                  response['TransitGatewayPolicyTableId'] = tgw_policy_table_id
+                      
+                  # We get the Peering ID with the Transit Gateway
+                  peering_id = nm.list_peerings(
+                      CoreNetworkId=core_network_id,
+                      PeeringType='TRANSIT_GATEWAY',
+                      EdgeLocation=region,
+                      State='AVAILABLE'
+                  )['Peerings'][0]['PeeringId']
+                  # Adding the Peering ID in the response
+                  response['PeeringId'] = peering_id
+                  # We get the Transit Gateway Attachment ID of the peering - and we add it in the response
+                  peering_tgw_attachment_id = nm.get_transit_gateway_peering(PeeringId=peering_id)['TransitGatewayPeering']['TransitGatewayPeeringAttachmentId']
+                  response['PeeringTransitGatewayAttachmentId'] = peering_tgw_attachment_id
+                      
+                  # We disassociate the Transit Gateway Policy Table from the Peering
+                  disassociation_state = ec2.disassociate_transit_gateway_policy_table(
+                      TransitGatewayPolicyTableId=tgw_policy_table_id,
+                      TransitGatewayAttachmentId=peering_tgw_attachment_id
+                  )['Association']['State']
+                  # We wait for the disassociation to finish
+                  while disassociation_state == "disassociating":
+                      time.sleep(5)
+                      disassociation_state = ec2.describe_transit_gateway_policy_tables(
+                          TransitGatewayPolicyTableIds = [tgw_policy_table_id]
+                      )["TransitGatewayPolicyTables"][0]["State"]
+                      
+                  # We delete the Transit Gateway Policy Table
+                  delete_tgw_policy_table = ec2.delete_transit_gateway_policy_table(TransitGatewayPolicyTableId=tgw_policy_table_id)
+                      
+                  # We delete the Peering
+                  delete_peering = nm.delete_peering(PeeringId=peering_id)
+                  delete_peering_state = delete_peering['Peering']['State']
+                  # We wait for the Peering to be deleted
+                  while delete_peering_state == 'DELETING':
+                      time.sleep(5)
+                      try:
+                          delete_peering_state = nm.get_transit_gateway_peering(PeeringId=peering_id)['TransitGatewayPeering']['Peering']['State']
+                      except:
+                          # An exception means the peering does no longer exists, so we can consider it as DELETED
+                          delete_peering_state = 'DELETED'
+                        
+                  log.info("EVERYTHING DELETED")
+                  return response
+              
+              except Exception as e:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+  AttachmentFunctionLogGroup:
+    Condition: CreateAttachment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: Encryption not required for this log group
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AttachmentFunction}
+      RetentionInDays: 7
+
+  AttachmentFunction:
+    Condition: CreateAttachment
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W58
+            reason: CWL permissions granted by use of AWSLambdaBasicExecutionRole
+          - id: W89
+            reason: No requirement for this function to be in a VPC
+          - id: W92
+            reason: No requirement to limit simultaneous executions
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Create Transit Gateway Route Table attachment
+      Runtime: python3.9
+      Timeout: 900
+      Role: !GetAtt CustomResourcesRole.Arn
+      Handler: index.lambda_handler
+      Code:
+        ZipFile: |-
+          import sys
+          import subprocess
+          from pip._internal import main
+
+          # pip3 install - update boto3 to latest version
+          subprocess.call('pip3 install -I -q boto3 -t /tmp/ --no-cache-dir --disable-pip-version-check'.split(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          sys.path.insert(1, '/tmp/')
+
+          import boto3
+          import os
+          import logging
+          import json
+          import time
+          import cfnresponse
+          from botocore.config import Config
+          from botocore.exceptions import ClientError
+
+          log = logging.getLogger("handler")
+          log.setLevel(logging.INFO)
+
+          def lambda_handler(event, context):
+              try:
+                  log.info("Received event: %s", json.dumps(event))
+                  log.info(boto3.__version__)
+
+                  # We obtain the parameters from the Custom Resource Event
+                  action = event["RequestType"]
+                  core_network_id = event["ResourceProperties"]["CoreNetworkId"]
+                  tgw_route_table_arn = event["ResourceProperties"]["TransitGatewayRouteTableArn"]
+                  peering_id = event["ResourceProperties"]["PeeringId"]
+                  tag_key = event["ResourceProperties"]["TagKey"]
+                  tag_value = event["ResourceProperties"]["TagValue"]
+                  # We obtain the AWS Region
+                  region = os.environ['AWS_REGION']
+
+                  # boto3 client configuration
+                  my_config = Config(region_name = 'us-west-2')
+                  nm = boto3.client("networkmanager", config=my_config)
+                  
+                  response = {}
+                  
+                  # Actions to perform if we are creating the resources
+                  if action == "Create":
+                      log.info("Creating tgw route table %s attachment in core network %s", tgw_route_table_arn, core_network_id)
+                      response = create_attachment(nm, tgw_route_table_arn, peering_id, tag_key, tag_value, region)
+                      
+                  if action == "Delete":
+                      log.info("Deleting tgw route table %s attachment in core network %s", tgw_route_table_arn, core_network_id)
+                      response = delete_attachment(nm, core_network_id, region)
+
+                  if action == "Update":
+                      log.info("Updating tgw route table %s attachment in core network %s", tgw_route_table_arn, core_network_id)
+                      # Getting the previous values of the Core Network ID
+                      old_core_network_id = event["OldResourceProperties"]["CoreNetworkId"]
+                      # 1) REMOVE THE CURRENT PEERING CONFIGURATION
+                      response = delete_attachment(nm, old_core_network_id, region)
+                      # 2) WE CREATE THE NEW PEERING
+                      response = create_attachment(nm, tgw_route_table_arn, peering_id, tag_key, tag_value, region)
+                      
+                  if "Return" in response:
+                      if response["Return"]:
+                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                          return
+                      cfnresponse.send(
+                          event, context, cfnresponse.FAILED, {}, reason="API request failed"
+                      )
+                      return
+                  
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response)
+                  log.info(response)
+              
+              except:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+          def create_attachment(nm, tgw_route_table_arn, peering_id, tag_key, tag_value, region):
+              try:
+                  # Initialize response
+                  response = {}
+                  
+                  # Create Transit Gateway Route Table attachment
+                  tgw_route_table_attachment = nm.create_transit_gateway_route_table_attachment(
+                      PeeringId=peering_id,
+                      TransitGatewayRouteTableArn=tgw_route_table_arn,
+                      Tags=[
+                          {
+                              'Key': 'Name',
+                              'Value': f'tgw-route-table-attachment-{region}'
+                          },
+                          {
+                              'Key': tag_key,
+                              'Value': tag_value
+                          }
+                      ]
+                  )
+                  # We obtain Attachment ID and state
+                  tgw_route_table_attachment_id = tgw_route_table_attachment['TransitGatewayRouteTableAttachment']['Attachment']['AttachmentId']
+                  tgw_route_table_attachment_state = tgw_route_table_attachment['TransitGatewayRouteTableAttachment']['Attachment']['State']
+                  
+                  # We wait for the attachment to be available
+                  while tgw_route_table_attachment_state != "AVAILABLE":
+                      time.sleep(5)
+                      tgw_route_table_attachment_state = nm.get_transit_gateway_route_table_attachment(AttachmentId=tgw_route_table_attachment_id)['TransitGatewayRouteTableAttachment']['Attachment']['State']
+                  # Adding Attachment ID in the response
+                  response['TransitGatewayRouteTableAttachmentId'] = tgw_route_table_attachment_id
+                  
+                  log.info("ATTACHMENT CREATED")
+                  return response
+              
+              except Exception as e:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                  )
+
+          def delete_attachment(nm, core_network_id, region):
+              try: 
+                  # Initialize response
+                  response = {}
+                  
+                  # Getting the Transit Gateway Route Table attachment
+                  tgw_route_table_attachment_id = nm.list_attachments(
+                      CoreNetworkId=core_network_id,
+                      AttachmentType='TRANSIT_GATEWAY_ROUTE_TABLE',
+                      EdgeLocation=region,
+                      State="AVAILABLE"
+                  )['Attachments'][0]['AttachmentId']
+                  response['TransitGatewayRouteTableAttachmentId'] = tgw_route_table_attachment_id
+                  
+                  # We delete the attachment
+                  tgw_route_table_attachment_state = nm.delete_attachment(AttachmentId=tgw_route_table_attachment_id)['Attachment']['State']
+                  # We wait for the attachment to be DELETED
+                  while tgw_route_table_attachment_state == 'DELETING':
+                      time.sleep(5)
+                      try:
+                          tgw_route_table_attachment_state = nm.get_transit_gateway_route_table_attachment(AttachmentId=tgw_route_table_attachment_id)['TransitGatewayRouteTableAttachment']['Attachment']['State']
+                      except:
+                          # An exception means the peering does no longer exists, so we can consider it as DELETED
+                          tgw_route_table_attachment_state = 'DELETED'
+              
+                  log.info("ATTACHMENT CREATED")
+                  return response
+
+              except Exception as e:
+                  log.exception("whoops")
+                  cfnresponse.send(
+                      event,
+                      context,
+                      cfnresponse.FAILED,
+                      {},
+                      reason="Caught exception, check logs",
+                   )

@@ -1,31 +1,52 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: This file creates production and non-production VPCs in the region and attaches them to the CloudWAN network
+Description: Production, and non-production infrastructure
 
 Parameters:
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
     Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
-  CloudWANID:
+  CoreNetworkId:
     Type: String
-    Description: ID of CloudWAN instance
-  CloudWANARN:
+    Default: ""
+  CoreNetworkArn:
     Type: String
-    Description: ARN of CloudWAN instance
+    Default: ""
+  CreateCWANAttachment:
+    Type: String
+    Description: Create the Cloud WAN VPC attachments
+    Default: "false"
+    AllowedValues: [true, false]
+  CreateVPCRoutes:
+    Type: String
+    Description: Create VPC routes to Core Network attachments
+    Default: "false"
+    AllowedValues: [true, false]
+
+Conditions:
+  CWANValuesAdded: !And
+    - !Not [!Equals [!Ref CoreNetworkId, ""]]
+    - !Not [!Equals [!Ref CoreNetworkArn, ""]]
+  CreateAttachment: !And
+    - !Equals [!Ref CreateCWANAttachment, 'true']
+    - !Condition CWANValuesAdded
+  CreateRoutes: !And
+    - !Condition CWANValuesAdded
+    - !Equals [!Ref CreateCWANAttachment, 'true']
+    - !Equals [!Ref CreateVPCRoutes, 'true']
 
 Mappings:
   RegionMap:
-    us-east-1:
-      prod: 10.0.0.0/16
+    us-west-2:
+      prod: 10.0.0.0/16  
       nonprod: 10.1.0.0/16
-    eu-west-1:
+    eu-north-1:
       prod: 10.10.0.0/16
       nonprod: 10.11.0.0/16
 
 Resources:
-
-# Production VPC
-
+# ---------- PRODUCTION VPC ----------
+  # VPC resource
   VPCProd:
     Metadata:
       cfn_nag:
@@ -48,14 +69,15 @@ Resources:
               - !Ref AWS::Region
               - "vpc"
 
-  VPCProdSubnet1:
+ # Subnets 
+  VPCProdSubnetWorkload1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPCProd
-      CidrBlock: !Select [0, !Cidr [!GetAtt VPCProd.CidrBlock, 1, 8]]
+      CidrBlock: !Select [0, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
       AvailabilityZone: !Select
         - 0
-        - !GetAZs
+        - !GetAZs 
           Ref: "AWS::Region"
       MapPublicIpOnLaunch: false
       Tags:
@@ -64,16 +86,16 @@ Resources:
             - "-"
             - - "prod"
               - !Ref AWS::Region
-              - "prod-subnet-1"
-
-  VPCProdSubnet2:
+              - "workload-subnet-1"
+  
+  VPCProdSubnetWorkload2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPCProd
-      CidrBlock: !Select [1, !Cidr [!GetAtt VPCProd.CidrBlock, 2, 8]]
+      CidrBlock: !Select [1, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
       AvailabilityZone: !Select
         - 1
-        - !GetAZs
+        - !GetAZs 
           Ref: "AWS::Region"
       MapPublicIpOnLaunch: false
       Tags:
@@ -82,10 +104,295 @@ Resources:
             - "-"
             - - "prod"
               - !Ref AWS::Region
-              - "prod-subnet-2"
+              - "workload-subnet-2"
 
-# Non-Production VPC
+  VPCProdSubnetEndpoints1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [2, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "endpoints-subnet-1"
 
+  VPCProdSubnetEndpoints2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [3, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "endpoints-subnet-2"
+
+  VPCProdSubnetCWAN1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [4, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "cwan-subnet-1"
+
+  VPCProdSubnetCWAN2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCProd
+      CidrBlock: !Select [5, !Cidr [!GetAtt VPCProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "cwan-subnet-2"
+
+  # Route Tables
+  VPCProdRouteTableWorkload1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "workload-rt-1"
+  
+  VPCProdWorkloadSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableWorkload1
+      SubnetId: !Ref VPCProdSubnetWorkload1
+
+  VPCProdRouteTableWorkload2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "workload-rt-2"
+  
+  VPCProdWorkloadSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableWorkload2
+      SubnetId: !Ref VPCProdSubnetWorkload2
+
+  VPCProdRouteTableEndpoints1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "endpoints-rt-1"
+  
+  VPCProdEndpointsSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableEndpoints1
+      SubnetId: !Ref VPCProdSubnetEndpoints1
+
+  VPCProdRouteTableEndpoints2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "endpoints-rt-2"
+  
+  VPCProdEndpointsSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableEndpoints2
+      SubnetId: !Ref VPCProdSubnetEndpoints2
+
+  VPCProdRouteTableCWAN1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "cwan-rt-1"
+  
+  VPCProdCWANSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableCWAN1
+      SubnetId: !Ref VPCProdSubnetCWAN1
+
+  VPCProdRouteTableCWAN2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "prod"
+              - !Ref AWS::Region
+              - "cwan-rt-2"
+  
+  VPCProdTGWSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCProdRouteTableCWAN2
+      SubnetId: !Ref VPCProdSubnetCWAN2
+
+  # Security Groups (Instance and VPC endpoint)
+  VPCProdInstanceSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Production VPC - Instance Security Group
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - Description: Allowing ICMP traffic
+          IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.0.0.0/8
+  
+  VPCProdEndpointsSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Production VPC - Endpoints Security Group
+      VpcId: !Ref VPCProd
+      SecurityGroupIngress:
+        - Description: Allowing HTTPS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref VPCProdInstanceSecurityGroup
+  
+  # EC2 Instances
+  EC2InstanceProdWorkload1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - !Ref VPCProdInstanceSecurityGroup
+      SubnetId:
+        !Ref VPCProdSubnetWorkload1
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileWorkloads
+      Tags:
+        - Key: Name
+          Value: "Prod-Instance-1"
+  
+  EC2InstanceProdWorkload2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - !Ref VPCProdInstanceSecurityGroup
+      SubnetId:
+        !Ref VPCProdSubnetWorkload2
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileWorkloads
+      Tags:
+        - Key: Name
+          Value: "Prod-Instance-2"
+  
+  # SSM Endpoints
+  SSMProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnetEndpoints1
+        - !Ref VPCProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  SSMMessagesProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnetEndpoints1
+        - !Ref VPCProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  EC2MessagesProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPCProd
+      SubnetIds:
+        - !Ref VPCProdSubnetEndpoints1
+        - !Ref VPCProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+# ---------- NON-PRODUCTION VPC ----------
+  # VPC resource
   VPCNonProd:
     Metadata:
       cfn_nag:
@@ -108,89 +415,331 @@ Resources:
               - !Ref AWS::Region
               - "vpc"
 
-  VPCNonprodSubnet1:
+ # Subnets 
+  VPCNonProdSubnetWorkload1:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPCNonProd
-      CidrBlock: !Select [0, !Cidr [!GetAtt VPCNonProd.CidrBlock, 2, 5]]
+      CidrBlock: !Select [0, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
       AvailabilityZone: !Select
         - 0
-        - !GetAZs
+        - !GetAZs 
           Ref: "AWS::Region"
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: !Join
             - "-"
             - - "nonprod"
               - !Ref AWS::Region
-              - "nonprod-subnet-1"
-
-  VPCNonprodSubnet2:
+              - "workload-subnet-1"
+  
+  VPCNonProdSubnetWorkload2:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPCNonProd
-      CidrBlock: !Select [1, !Cidr [!GetAtt VPCNonProd.CidrBlock, 2, 5]]
+      CidrBlock: !Select [1, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
       AvailabilityZone: !Select
         - 1
-        - !GetAZs
+        - !GetAZs 
           Ref: "AWS::Region"
-      MapPublicIpOnLaunch: true
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
           Value: !Join
             - "-"
             - - "nonprod"
               - !Ref AWS::Region
-              - "nonprod-subnet-2"
+              - "workload-subnet-2"
 
-# Production route table
-
-  DefaultRouteTableVPCProd:
-    Type: AWS::EC2::RouteTable
+  VPCNonProdSubnetEndpoints1:
+    Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref VPCProd
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [2, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: Prod-Default-RT
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "endpoints-subnet-1"
 
-  VPCProdSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+  VPCNonProdSubnetEndpoints2:
+    Type: AWS::EC2::Subnet
     Properties:
-      RouteTableId: !Ref DefaultRouteTableVPCProd
-      SubnetId: !Ref VPCProdSubnet1
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [3, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "endpoints-subnet-2"
 
-  VPCProdSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+  VPCNonProdSubnetCWAN1:
+    Type: AWS::EC2::Subnet
     Properties:
-      RouteTableId: !Ref DefaultRouteTableVPCProd
-      SubnetId: !Ref VPCProdSubnet2
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [4, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "cwan-subnet-1"
 
-# Non-Production route table
+  VPCNonProdSubnetCWAN2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPCNonProd
+      CidrBlock: !Select [5, !Cidr [!GetAtt VPCNonProd.CidrBlock, 6, 8]]
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs 
+          Ref: "AWS::Region"
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "cwan-subnet-2"
 
-  DefaultRouteTableVPCNonprod:
+  # Route Tables
+  VPCNonProdRouteTableWorkload1:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPCNonProd
       Tags:
         - Key: Name
-          Value: Nonprod-Default-RT
-
-  VPCNonprodSubnet1RouteTableAssociation:
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "workload-rt-1"
+  
+  VPCNonProdWorkloadSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref DefaultRouteTableVPCNonprod
-      SubnetId: !Ref VPCNonprodSubnet1
+      RouteTableId: !Ref VPCNonProdRouteTableWorkload1
+      SubnetId: !Ref VPCNonProdSubnetWorkload1
 
-  VPCNonprodSubnet2RouteTableAssociation:
+  VPCNonProdRouteTableWorkload2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "workload-rt-2"
+  
+  VPCNonProdWorkloadSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref DefaultRouteTableVPCNonprod
-      SubnetId: !Ref VPCNonprodSubnet2
+      RouteTableId: !Ref VPCNonProdRouteTableWorkload2
+      SubnetId: !Ref VPCNonProdSubnetWorkload2
 
-# EC2 Instance role for both environments
+  VPCNonProdRouteTableEndpoints1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "endpoints-rt-1"
+  
+  VPCNonProdEndpointsSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCNonProdRouteTableEndpoints1
+      SubnetId: !Ref VPCNonProdSubnetEndpoints1
 
-  Ec2SsmIamRole:
+  VPCNonProdRouteTableEndpoints2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "endpoints-rt-2"
+  
+  VPCNonProdEndpointsSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCNonProdRouteTableEndpoints2
+      SubnetId: !Ref VPCNonProdSubnetEndpoints2
+
+  VPCNonProdRouteTableCWAN1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "cwan-rt-1"
+  
+  VPCNonProdCWANSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCNonProdRouteTableCWAN1
+      SubnetId: !Ref VPCNonProdSubnetCWAN1
+
+  VPCNonProdRouteTableCWAN2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPCNonProd
+      Tags:
+        - Key: Name
+          Value: !Join
+            - "-"
+            - - "nonprod"
+              - !Ref AWS::Region
+              - "cwan-rt-2"
+  
+  VPCNonProdTGWSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref VPCNonProdRouteTableCWAN2
+      SubnetId: !Ref VPCNonProdSubnetCWAN2
+
+  # Security Groups (Instance and VPC endpoint)
+  VPCNonProdInstanceSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Non-Production VPC - Instance Security Group
+      VpcId: !Ref VPCNonProd
+      SecurityGroupIngress:
+        - Description: Allowing ICMP traffic
+          IpProtocol: icmp
+          FromPort: "-1"
+          ToPort: "-1"
+          CidrIp: 10.0.0.0/8
+  
+  VPCNonProdEndpointsSecurityGroup:
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W9
+            reason: CIDR is constrained to CloudWAN demo range
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Non-Production VPC - VPC Endpoints Security Group
+      VpcId: !Ref VPCNonProd
+      SecurityGroupIngress:
+        - Description: Allowing HTTPS
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref VPCNonProdInstanceSecurityGroup
+  
+  # EC2 Instances
+  EC2InstanceNonProdWorkload1:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - Ref: VPCNonProdInstanceSecurityGroup
+      SubnetId:
+        Ref: VPCNonProdSubnetWorkload1
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileWorkloads
+      Tags:
+        - Key: Name
+          Value: "NonProd-Instance-1"
+  
+  EC2InstanceNonProdWorkload2:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      SecurityGroupIds:
+        - Ref: VPCNonProdInstanceSecurityGroup
+      SubnetId:
+        Ref: VPCNonProdSubnetWorkload2
+      ImageId: !Ref LatestAmiId
+      IamInstanceProfile: !Ref EC2SSMInstanceProfileWorkloads
+      Tags:
+        - Key: Name
+          Value: "NonProd-Instance-2"
+  
+  # SSM Endpoints
+  SSMNonProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonProdSubnetEndpoints1
+        - !Ref VPCNonProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCNonProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  SSMMessagesNonProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonProdSubnetEndpoints1
+        - !Ref VPCNonProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCNonProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+  EC2MessagesNonProdVPCEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
+      VpcId: !Ref VPCNonProd
+      SubnetIds:
+        - !Ref VPCNonProdSubnetEndpoints1
+        - !Ref VPCNonProdSubnetEndpoints2
+      SecurityGroupIds:
+        - !Ref VPCNonProdEndpointsSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: True
+
+# ---------- IAM ROLE (EC2 INSTANCE) ----------
+  # EC2 Instance Role (SSM access)
+  EC2SSMIAMRoleWorkloads:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -206,188 +755,21 @@ Resources:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
       Path: /
 
-  EC2SsmInstanceProfile:
+  EC2SSMInstanceProfileWorkloads:
     Type: AWS::IAM::InstanceProfile
     Properties:
       Path: /
       Roles:
-        - !Ref Ec2SsmIamRole
+        - !Ref EC2SSMIAMRoleWorkloads
 
-# Production instance and VPC endpoints
-
-  InstanceSecurityGroupProd:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W9
-            reason: CIDR is constrained to CloudWAN demo range
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Production instances
-      VpcId: !Ref VPCProd
-      SecurityGroupIngress:
-        - Description: allow ICMP from CloudWAN
-          IpProtocol: icmp
-          FromPort: "-1"
-          ToPort: "-1"
-          CidrIp: 10.0.0.0/8
-
-  EC2InstanceProd:
-    Type: AWS::EC2::Instance
-    Properties:
-      InstanceType: t2.micro
-      SecurityGroupIds:
-        - Ref: InstanceSecurityGroupProd
-      SubnetId:
-        Ref: VPCProdSubnet1
-      ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref EC2SsmInstanceProfile
-      Tags:
-        - Key: Name
-          Value: "Prod-Instance"
-
-  SecurityGroupVpcEndpointProd:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Production VPC Endpoints
-      VpcId: !Ref VPCProd
-      SecurityGroupIngress:
-        - Description: allow inbound HTTPS from production instances
-          SourceSecurityGroupId: !Ref InstanceSecurityGroupProd
-          FromPort: 443
-          ToPort: 443
-          IpProtocol: tcp
-
-  SsmVpcEndpointProd:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
-      VpcId: !Ref VPCProd
-      SubnetIds:
-        - !Ref VPCProdSubnet1
-        - !Ref VPCProdSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointProd
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  SsmMessagesVpcEndpointProd:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
-      VpcId: !Ref VPCProd
-      SubnetIds:
-        - !Ref VPCProdSubnet1
-        - !Ref VPCProdSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointProd
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  Ec2MessagesVpcEndpointProd:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
-      VpcId: !Ref VPCProd
-      SubnetIds:
-        - !Ref VPCProdSubnet1
-        - !Ref VPCProdSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointProd
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-# Non-Production instance and VPC endpoints
-
-  InstanceSecurityGroupNonProd:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W9
-            reason: CIDR is constrained to CloudWAN demo range
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Production instances
-      VpcId: !Ref VPCNonProd
-      SecurityGroupIngress:
-        - Description: allow ICMP from CloudWAN
-          IpProtocol: icmp
-          FromPort: "-1"
-          ToPort: "-1"
-          CidrIp: 10.0.0.0/8
-
-  EC2InstanceNonprod:
-    Type: AWS::EC2::Instance
-    Properties:
-      InstanceType: t2.micro
-      SecurityGroupIds:
-        - Ref: InstanceSecurityGroupNonProd
-      SubnetId:
-        Ref: VPCNonprodSubnet1
-      ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref EC2SsmInstanceProfile
-      Tags:
-        - Key: Name
-          Value: "Nonprod-Instance"
-
-  SecurityGroupVpcEndpointNonprod:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Nonprod VPC Endpoints
-      VpcId: !Ref VPCNonProd
-      SecurityGroupIngress:
-        - Description: allow inbound HTTPS from nonprod instances
-          SourceSecurityGroupId: !Ref InstanceSecurityGroupNonProd
-          FromPort: 443
-          ToPort: 443
-          IpProtocol: tcp
-
-  SsmVpcEndpointNonprod:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
-      VpcId: !Ref VPCNonProd
-      SubnetIds:
-        - !Ref VPCNonprodSubnet1
-        - !Ref VPCNonprodSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointNonprod
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  SsmMessagesVpcEndpointNonprod:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
-      VpcId: !Ref VPCNonProd
-      SubnetIds:
-        - !Ref VPCNonprodSubnet1
-        - !Ref VPCNonprodSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointNonprod
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  Ec2MessagesVpcEndpointNonprod:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
-      VpcId: !Ref VPCNonProd
-      SubnetIds:
-        - !Ref VPCNonprodSubnet1
-        - !Ref VPCNonprodSubnet2
-      SecurityGroupIds:
-        - !Ref SecurityGroupVpcEndpointNonprod
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-# CloudWAN attachments and routes
-
-  NonprodCloudwanAttachment:
+# ---------- CLOUD WAN ATTACHMENTS ----------
+  
+  # Production VPC
+  ProdCWANAttachment:
+    Condition: CreateAttachment
     Type: AWS::NetworkManager::VpcAttachment
     Properties:
-      CoreNetworkId:
-        Ref: CloudWANID
+      CoreNetworkId: !Ref CoreNetworkId
       SubnetArns:
         - Fn::Join:
             - ""
@@ -396,7 +778,7 @@ Resources:
               - ":"
               - Ref: AWS::AccountId
               - ":subnet/"
-              - Ref: VPCNonprodSubnet1
+              - Ref: VPCProdSubnetCWAN1
         - Fn::Join:
             - ""
             - - "arn:aws:ec2:"
@@ -404,46 +786,10 @@ Resources:
               - ":"
               - Ref: AWS::AccountId
               - ":subnet/"
-              - Ref: VPCNonprodSubnet2
-      Tags:
-        - Key: nonprod
-          Value: cloudwan-segment
-      VpcArn:
-        Fn::Join:
-          - ""
-          - - "arn:"
-            - Ref: AWS::Partition
-            - ":ec2:"
-            - Ref: AWS::Region
-            - ":"
-            - Ref: AWS::AccountId
-            - ":vpc/"
-            - Ref: VPCNonProd
-
-  ProdCloudAttachmentwan:
-    Type: AWS::NetworkManager::VpcAttachment
-    Properties:
-      CoreNetworkId: !Ref CloudWANID
-      SubnetArns:
-        - Fn::Join:
-            - ""
-            - - "arn:aws:ec2:"
-              - Ref: AWS::Region
-              - ":"
-              - Ref: AWS::AccountId
-              - ":subnet/"
-              - Ref: VPCProdSubnet1
-        - Fn::Join:
-            - ""
-            - - "arn:aws:ec2:"
-              - Ref: AWS::Region
-              - ":"
-              - Ref: AWS::AccountId
-              - ":subnet/"
-              - Ref: VPCProdSubnet2
+              - Ref: VPCProdSubnetCWAN1
       Tags:
         - Key: prod
-          Value: cloudwan-segment
+          Value: true
       VpcArn:
         Fn::Join:
           - ""
@@ -456,7 +802,97 @@ Resources:
             - ":vpc/"
             - Ref: VPCProd
 
+  # Non-Production VPC
+  NonProdCWANAttachment:
+    Condition: CreateAttachment
+    Type: AWS::NetworkManager::VpcAttachment
+    Properties:
+      CoreNetworkId:
+        Ref: CoreNetworkId
+      SubnetArns:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCNonProdSubnetCWAN1
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: VPCNonProdSubnetCWAN1
+      Tags:
+        - Key: nonprod
+          Value: true
+      VpcArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":ec2:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":vpc/"
+            - Ref: VPCNonProd
+
+# ---------- VPC ROUTES TO CLOUD WAN (CUSTOM RESOURCES) ----------
+
+  ProdRouteTableEntry1:
+    Condition: CreateRoutes
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - ProdCWANAttachment
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref VPCProdRouteTableWorkload1
+      CoreNetworkArn: !Ref CoreNetworkArn
+  
+  ProdRouteTableEntry2:
+    Condition: CreateRoutes
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - ProdCWANAttachment
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref VPCProdRouteTableWorkload2
+      CoreNetworkArn: !Ref CoreNetworkArn
+
+  NonProdRouteTableEntry1:
+    Condition: CreateRoutes
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - NonProdCWANAttachment
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref VPCNonProdRouteTableWorkload1
+      CoreNetworkArn: !Ref CoreNetworkArn
+  
+  NonProdRouteTableEntry2:
+    Condition: CreateRoutes
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - NonProdCWANAttachment
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt RouteFunction.Arn
+      Cidr: "0.0.0.0/0"
+      RouteTableId: !Ref VPCNonProdRouteTableWorkload2
+      CoreNetworkArn: !Ref CoreNetworkArn
+
   RouteFunctionRole:
+    Condition: CreateRoutes
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -484,6 +920,7 @@ Resources:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   FunctionLogGroup:
+    Condition: CreateRoutes
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -495,6 +932,7 @@ Resources:
       RetentionInDays: 7
 
   RouteFunction:
+    Condition: CreateRoutes
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -522,7 +960,6 @@ Resources:
           log = logging.getLogger("handler")
           log.setLevel(logging.INFO)
 
-
           def lambda_handler(event, context):
               try:
                   log.info("Received event: %s", json.dumps(event))
@@ -532,6 +969,7 @@ Resources:
                   core_arn = event["ResourceProperties"]["CoreNetworkArn"]
                   ec2 = boto3.client("ec2")
                   response = {}
+
                   if action == "Create":
                       log.info(
                           "Creating route to %s with arn %s for table %s",
@@ -544,6 +982,7 @@ Resources:
                           RouteTableId=table_id,
                           CoreNetworkArn=core_arn,
                       )
+
                   if action == "Delete":
                       log.info("Deleting route to %s in table %s", cidr, table_id)
                       try:
@@ -555,6 +994,7 @@ Resources:
                               response = {"Return": True}
                           else:
                               raise error
+
                   if action == "Update":
                       old_cidr = event["OldResourceProperties"]["Cidr"]
                       old_table_id = event["OldResourceProperties"]["RouteTableId"]
@@ -593,6 +1033,7 @@ Resources:
                               RouteTableId=table_id,
                               CoreNetworkArn=core_arn,
                           )
+
                   if "Return" in response:
                       if response["Return"]:
                           cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
@@ -602,6 +1043,7 @@ Resources:
                       )
                       return
                   cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              
               except:
                   log.exception("whoops")
                   cfnresponse.send(
@@ -612,24 +1054,3 @@ Resources:
                       reason="Caught exception, check logs",
                   )
 
-  ProdRouteTableEntry:
-    Type: Custom::RouteTableEntry
-    DependsOn:
-      - ProdCloudAttachmentwan
-      - FunctionLogGroup
-    Properties:
-      ServiceToken: !GetAtt RouteFunction.Arn
-      Cidr: "0.0.0.0/0"
-      RouteTableId: !Ref DefaultRouteTableVPCProd
-      CoreNetworkArn: !Ref CloudWANARN
-
-  NonProdRouteTableEntry:
-    Type: Custom::RouteTableEntry
-    DependsOn:
-      - NonprodCloudwanAttachment
-      - FunctionLogGroup
-    Properties:
-      ServiceToken: !GetAtt RouteFunction.Arn
-      Cidr: "0.0.0.0/0"
-      RouteTableId: !Ref DefaultRouteTableVPCNonprod
-      CoreNetworkArn: !Ref CloudWANARN

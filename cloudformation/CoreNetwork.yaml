@@ -1,11 +1,7 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: CloudWAN Workshop test network
+Description: CloudWAN Workshop
 Parameters:
-  UseInitialPolicy:
-    Type: String
-    Default: "Yes"
-    AllowedValues: ["Yes", "No"]
   FirewallAttachmentIdEU:
     Type: String
     Default: ""
@@ -13,20 +9,16 @@ Parameters:
     Type: String
     Default: ""
 
-Conditions:
-  UseInitialPolicy:
-    !Equals [!Ref UseInitialPolicy, "Yes"]
-
 Resources:
   GlobalNetwork:
     Type: AWS::NetworkManager::GlobalNetwork
     Properties:
-      Description: Cloudwan Cloudformation Demo
+      Description: Global Network - Cloud WAN Workshop
       Tags:
         - Key: Env
           Value: Workshop
         - Key: Name
-          Value: Workshop-Global-Net
+          Value: Workshop-GlobalNetwork
 
   CoreNetwork:
     Type: AWS::NetworkManager::CoreNetwork
@@ -38,126 +30,87 @@ Resources:
     Properties:
       GlobalNetworkId: !Ref GlobalNetwork
       PolicyDocument:
-        !If
-          - UseInitialPolicy
-          -
-            version: "2021.12"
-            core-network-configuration:
-              vpn-ecmp-support: false
-              asn-ranges:
-                - 64512-65534
-              edge-locations:
-                - location: eu-west-1
-                - location: us-east-1
-            segments:
-              - name: prod
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-              - name: nonprod
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-              - name: sharedservices
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-            segment-actions:
-              - action: share
-                mode: attachment-route
-                segment: sharedservices
-                share-with: "*"
-            attachment-policies:
-              - rule-number: 100
-                conditions:
-                  - type: tag-exists
-                    key: prod
-                action:
-                  association-method: constant
-                  segment: prod
-              - rule-number: 200
-                conditions:
-                  - type: tag-exists
-                    key: nonprod
-                action:
-                  association-method: constant
-                  segment: nonprod
-              - rule-number: 300
-                conditions:
-                  - type: tag-exists
-                    key: sharedservices
-                action:
-                  association-method: constant
-                  segment: sharedservices
-          -
-            version: "2021.12"
-            core-network-configuration:
-              vpn-ecmp-support: false
-              asn-ranges:
-                - 64512-65534
-              edge-locations:
-                - location: eu-west-1
-                - location: us-east-1
-            segments:
-              - name: prod
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-              - name: nonprod
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-              - name: sharedservices
-                require-attachment-acceptance: false
-                edge-locations:
-                  - eu-west-1
-                  - us-east-1
-            segment-actions:
-              - action: share
-                mode: attachment-route
-                segment: sharedservices
-                share-with: "*"
-              - action: create-route
-                destination-cidr-blocks:
-                 - "0.0.0.0/0"
-                segment: prod
-                destinations:
-                  - !Ref FirewallAttachmentIdEU
-                  - !Ref FirewallAttachmentIdUS
-              - action: create-route
-                destination-cidr-blocks:
-                 - "0.0.0.0/0"
-                segment: nonprod
-                destinations:
-                  - !Ref FirewallAttachmentIdEU
-                  - !Ref FirewallAttachmentIdUS
-            attachment-policies:
-              - rule-number: 100
-                conditions:
-                  - type: tag-exists
-                    key: prod
-                action:
-                  association-method: constant
-                  segment: prod
-              - rule-number: 200
-                conditions:
-                  - type: tag-exists
-                    key: nonprod
-                action:
-                  association-method: constant
-                  segment: nonprod
-              - rule-number: 300
-                conditions:
-                  - type: tag-exists
-                    key: sharedservices
-                action:
-                  association-method: constant
-                  segment: sharedservices
+        version: "2021.12"
+        core-network-configuration:
+          vpn-ecmp-support: false
+          asn-ranges:
+            - 64520-65534
+          edge-locations:
+            - location: eu-north-1
+            - location: us-west-2
+        segments:
+          - name: prod
+            require-attachment-acceptance: false
+            isolate-attachments: true
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+          - name: nonprod
+            require-attachment-acceptance: false
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+          - name: sharedservices
+            require-attachment-acceptance: false
+          - name: legacy
+            require-attachment-acceptance: false
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+        attachment-policies:
+          - rule-number: 100
+            conditions:
+              - type: tag-exists
+                key: prod
+            action:
+              association-method: constant
+              segment: prod
+          - rule-number: 200
+            conditions:
+              - type: tag-exists
+                key: nonprod
+            action:
+              association-method: constant
+              segment: nonprod
+          - rule-number: 300
+            conditions:
+              - type: tag-exists
+                key: sharedservices
+            action:
+              association-method: constant
+              segment: sharedservices
+          - rule-number: 400
+            conditions:
+              - type: tag-exists
+                key: legacy
+            action:
+              association-method: constant
+              segment: legacy
+        segment-actions:
+          - action: share
+            mode: attachment-route
+            segment: sharedservices
+            share-with: "*"
+          - action: create-route
+            destination-cidr-blocks:
+              - 0.0.0.0/0
+            segment: prod
+            destinations:
+              - !Ref FirewallAttachmentIdEU
+              - !Ref FirewallAttachmentIdUS
+          - action: create-route
+            destination-cidr-blocks:
+              - 0.0.0.0/0
+            segment: nonprod
+            destinations:
+              - !Ref FirewallAttachmentIdEU
+              - !Ref FirewallAttachmentIdUS           
+          - action: share
+            mode: attachment-route
+            segment: legacy
+            share-with:
+              - prod
+              - nonprod
 
 Outputs:
   CoreNetworkId:

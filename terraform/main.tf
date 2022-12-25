@@ -336,9 +336,9 @@ module "oregon_legacy_vpc" {
   az_count   = var.oregon_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.oregon_tgw.id
-  # transit_gateway_routes = {
-  #   workload = "0.0.0.0/0"
-  # }
+  transit_gateway_routes = {
+    workload = "0.0.0.0/0"
+  }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.oregon_legacy_vpc.endpoint_subnet_cidrs, 0, var.oregon_legacy_vpc.number_azs) }
@@ -482,9 +482,9 @@ module "stockholm_legacy_vpc" {
   az_count   = var.stockholm_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.stockholm_tgw.id
-  # transit_gateway_routes = {
-  #   workload = "0.0.0.0/0"
-  # }
+  transit_gateway_routes = {
+    workload = "0.0.0.0/0"
+  }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.stockholm_legacy_vpc.endpoint_subnet_cidrs, 0, var.stockholm_legacy_vpc.number_azs) }

@@ -13,8 +13,8 @@ This repository shows you an example in AWS CloudFormation of global communicati
 This sample project is meant to be deployed to a single account and multiple regions. By default, AWS regions **us-west-1** and **eu-north-1** are in use.
 
 * `make deploy` will deploy all four stacks (core network, workloads, inspection, and legacy). However, the static routes in the Core Network policy will require for you to make to different deployments.
-  * First, in *CoreNetwork.yaml* **uncomment lines x - x** and use `make deploy`. This will deploy all the resources except the static routes pointing to the Inspection VPC attachments.
-  * After this, **uncomment lines x - x** and use `make update-cloudwan`. This will finish the deployment.
+  * First, in *CoreNetwork.yaml* **uncomment lines 55 - 93, and 108 - 113** and use `make deploy`. This will deploy all the resources except the static routes pointing to the Inspection VPC attachments.
+  * After this, **uncomment lines 94 - 107** and use `make update-cloudwan`. This will finish the deployment.
 * `make undeploy` will delete all four stacks
 
 ## Following the lab instructions

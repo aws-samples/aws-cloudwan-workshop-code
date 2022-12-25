@@ -52,65 +52,65 @@ Resources:
               - us-west-2
           - name: sharedservices
             require-attachment-acceptance: false
-          - name: legacy
-            require-attachment-acceptance: false
-            edge-locations:
-              - eu-north-1
-              - us-west-2
-        attachment-policies:
-          - rule-number: 100
-            conditions:
-              - type: tag-exists
-                key: prod
-            action:
-              association-method: constant
-              segment: prod
-          - rule-number: 200
-            conditions:
-              - type: tag-exists
-                key: nonprod
-            action:
-              association-method: constant
-              segment: nonprod
-          - rule-number: 300
-            conditions:
-              - type: tag-exists
-                key: sharedservices
-            action:
-              association-method: constant
-              segment: sharedservices
-          - rule-number: 400
-            conditions:
-              - type: tag-exists
-                key: legacy
-            action:
-              association-method: constant
-              segment: legacy
-        segment-actions:
-          - action: share
-            mode: attachment-route
-            segment: sharedservices
-            share-with: "*"
-          - action: create-route
-            destination-cidr-blocks:
-              - 0.0.0.0/0
-            segment: prod
-            destinations:
-              - !Ref FirewallAttachmentIdEU
-              - !Ref FirewallAttachmentIdUS
-          - action: create-route
-            destination-cidr-blocks:
-              - 0.0.0.0/0
-            segment: nonprod
-            destinations:
-              - !Ref FirewallAttachmentIdEU
-              - !Ref FirewallAttachmentIdUS           
-          - action: share
-            mode: attachment-route
-            segment: legacy
-            share-with:
-              - prod
-              - nonprod
+        #   - name: legacy
+        #     require-attachment-acceptance: false
+        #     edge-locations:
+        #       - eu-north-1
+        #       - us-west-2
+        # attachment-policies:
+        #   - rule-number: 100
+        #     conditions:
+        #       - type: tag-exists
+        #         key: prod
+        #     action:
+        #       association-method: constant
+        #       segment: prod
+        #   - rule-number: 200
+        #     conditions:
+        #       - type: tag-exists
+        #         key: nonprod
+        #     action:
+        #       association-method: constant
+        #       segment: nonprod
+        #   - rule-number: 300
+        #     conditions:
+        #       - type: tag-exists
+        #         key: sharedservices
+        #     action:
+        #       association-method: constant
+        #       segment: sharedservices
+        #   - rule-number: 400
+        #     conditions:
+        #       - type: tag-exists
+        #         key: legacy
+        #     action:
+        #       association-method: constant
+        #       segment: legacy
+        # segment-actions:
+        #   - action: share
+        #     mode: attachment-route
+        #     segment: sharedservices
+        #     share-with: "*"
+        #   - action: create-route
+        #     destination-cidr-blocks:
+        #       - 0.0.0.0/0
+        #     segment: prod
+        #     destinations:
+        #       - !Ref FirewallAttachmentIdEU
+        #       - !Ref FirewallAttachmentIdUS
+        #   - action: create-route
+        #     destination-cidr-blocks:
+        #       - 0.0.0.0/0
+        #     segment: nonprod
+        #     destinations:
+        #       - !Ref FirewallAttachmentIdEU
+        #       - !Ref FirewallAttachmentIdUS           
+        #   - action: share
+        #     mode: attachment-route
+        #     segment: legacy
+        #     share-with:
+        #       - prod
+        #       - nonprod
 
 Outputs:
   CoreNetworkId:

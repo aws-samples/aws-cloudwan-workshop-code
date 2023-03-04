@@ -8,16 +8,12 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 4.46.0"
-    }
-    awscc = {
-      source  = "hashicorp/awscc"
-      version = ">= 0.15.0"
+      version = ">= 4.57.0"
     }
   }
 }
 
-# Provider definitios for Oregon Region
+# Provider definition for Oregon Region
 provider "aws" {
   region = var.aws_regions.oregon
   alias  = "awsoregon"
@@ -30,12 +26,7 @@ provider "aws" {
   }
 }
 
-provider "awscc" {
-  region = var.aws_regions.oregon
-  alias  = "awsccoregon"
-}
-
-# Provider definitios for Stockholm Region
+# Provider definition for Stockholm Region
 provider "aws" {
   region = var.aws_regions.stockholm
   alias  = "awsstockholm"
@@ -48,7 +39,3 @@ provider "aws" {
   }
 }
 
-provider "awscc" {
-  region = var.aws_regions.stockholm
-  alias  = "awsccstockholm"
-}

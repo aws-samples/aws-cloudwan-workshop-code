@@ -12,42 +12,55 @@ resource "aws_networkmanager_global_network" "global_network" {
   description = "Cloud WAN Workshop - Global Network."
 
   tags = {
-    Name = "Global Network"
+    Name = "Global Network - ${var.project_identifier}"
   }
 }
 
 # CORE NETWORK
-resource "awscc_networkmanager_core_network" "core_network" {
-  provider = awscc.awsccoregon
+resource "aws_networkmanager_core_network" "core_network" {
+  provider = aws.awsoregon
 
   description       = "Cloud WAN Workshop - Core Network."
   global_network_id = aws_networkmanager_global_network.global_network.id
-  policy_document   = jsonencode(jsondecode(data.aws_networkmanager_core_network_policy_document.core_nw_policy.json))
 
-  tags = [{
-    key   = "Name"
-    value = "Core Network"
-  }]
+  create_base_policy  = true
+  base_policy_regions = values({ for k, v in var.aws_regions : k => v })
+
+  tags = {
+    Name = "Core Network - ${var.project_identifier}"
+  }
+}
+
+# CORE NETWORK POLICY ATTACHMENT
+resource "aws_networkmanager_core_network_policy_attachment" "policy_attachment" {
+  provider = aws.awsoregon
+
+  core_network_id = aws_networkmanager_core_network.core_network.id
+  policy_document = data.aws_networkmanager_core_network_policy_document.core_nw_policy.json
+
+  depends_on = [
+    module.oregon_spoke_vpcs,
+    module.stockholm_spoke_vpcs,
+    aws_networkmanager_transit_gateway_route_table_attachment.oregon_cwan_tgw_rt_attachment,
+    aws_networkmanager_transit_gateway_route_table_attachment.stockholm_cwan_tgw_rt_attachment
+  ]
 }
 
 # RESOURCES IN OREGON (us-west-2)
 # Spoke VPCs - definition in variables.tf
 module "oregon_spoke_vpcs" {
-  for_each = var.oregon_spoke_vpcs
-  source   = "aws-ia/vpc/aws"
-  version  = "= 3.1.0"
-  providers = {
-    aws   = aws.awsoregon
-    awscc = awscc.awsccoregon
-  }
+  for_each  = var.oregon_spoke_vpcs
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsoregon }
 
   name       = each.key
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   # core_network = {
-  #   id  = awscc_networkmanager_core_network.core_network.core_network_id
-  #   arn = awscc_networkmanager_core_network.core_network.core_network_arn
+  #   id  = aws_networkmanager_core_network.core_network.id
+  #   arn = aws_networkmanager_core_network.core_network.arn
   # }
   # core_network_routes = {
   #   workload = "0.0.0.0/0"
@@ -70,21 +83,18 @@ module "oregon_spoke_vpcs" {
 
 # Inspection VPC - definition in variables.tf
 module "oregon_inspection_vpc" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 3.1.0"
-  providers = {
-    aws   = aws.awsoregon
-    awscc = awscc.awsccoregon
-  }
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsoregon }
 
   name       = var.oregon_inspection_vpc.name
   cidr_block = var.oregon_inspection_vpc.cidr_block
   az_count   = var.oregon_inspection_vpc.number_azs
 
-  core_network = {
-    id  = awscc_networkmanager_core_network.core_network.core_network_id
-    arn = awscc_networkmanager_core_network.core_network.core_network_arn
-  }
+  # core_network = {
+  #   id  = aws_networkmanager_core_network.core_network.id
+  #   arn = aws_networkmanager_core_network.core_network.arn
+  # }
   # core_network_routes = {
   #   inspection = "10.0.0.0/8"
   # }
@@ -98,26 +108,24 @@ module "oregon_inspection_vpc" {
       cidrs                   = slice(var.oregon_inspection_vpc.inspection_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
       connect_to_public_natgw = true
     }
-    core_network = {
-      cidrs              = slice(var.oregon_inspection_vpc.cnetwork_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
-      ipv6_support       = false
-      require_acceptance = true
-      accept_attachment  = true
+    # core_network = {
+    #   cidrs              = slice(var.oregon_inspection_vpc.cnetwork_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
+    #   ipv6_support       = false
+    #   require_acceptance = true
+    #   accept_attachment  = true
 
-      tags = {
-        sharedservices = true
-      }
-    }
+    #   tags = {
+    #     sharedservices = true
+    #   }
+    # }
   }
 }
 
 # AWS Network Firewall Resource
 module "oregon_network_firewall" {
-  source  = "aws-ia/networkfirewall/aws"
-  version = "0.0.2"
-  providers = {
-    aws = aws.awsoregon
-  }
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "0.0.2"
+  providers = { aws = aws.awsoregon }
 
   network_firewall_name   = "anfw-oregon"
   network_firewall_policy = aws_networkfirewall_firewall_policy.oregon_fwpolicy.arn
@@ -137,11 +145,9 @@ module "oregon_network_firewall" {
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "oregon_compute" {
-  for_each = module.oregon_spoke_vpcs
-  source   = "./modules/compute"
-  providers = {
-    aws = aws.awsoregon
-  }
+  for_each  = module.oregon_spoke_vpcs
+  source    = "./modules/compute"
+  providers = { aws = aws.awsoregon }
 
   project_name             = var.project_identifier
   vpc_name                 = each.key
@@ -155,11 +161,9 @@ module "oregon_compute" {
 
 # VPC endpoints (SSM access)
 module "oregon_vpc_endpoints" {
-  for_each = module.oregon_spoke_vpcs
-  source   = "./modules/vpc_endpoints"
-  providers = {
-    aws = aws.awsoregon
-  }
+  for_each  = module.oregon_spoke_vpcs
+  source    = "./modules/vpc_endpoints"
+  providers = { aws = aws.awsoregon }
 
   project_name             = var.project_identifier
   vpc_name                 = each.key
@@ -172,21 +176,18 @@ module "oregon_vpc_endpoints" {
 # RESOURCES IN STOCKHOLM REGION (eu-north-1)
 # Spoke VPCs - definition in variables.tf
 module "stockholm_spoke_vpcs" {
-  for_each = var.stockholm_spoke_vpcs
-  source   = "aws-ia/vpc/aws"
-  version  = "= 3.1.0"
-  providers = {
-    aws   = aws.awsstockholm
-    awscc = awscc.awsccstockholm
-  }
+  for_each  = var.stockholm_spoke_vpcs
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsstockholm }
 
   name       = each.key
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   # core_network = {
-  #   id  = awscc_networkmanager_core_network.core_network.core_network_id
-  #   arn = awscc_networkmanager_core_network.core_network.core_network_arn
+  #   id  = aws_networkmanager_core_network.core_network.id
+  #   arn = aws_networkmanager_core_network.core_network.arn
   # }
   # core_network_routes = {
   #   workload = "0.0.0.0/0"
@@ -209,21 +210,18 @@ module "stockholm_spoke_vpcs" {
 
 # Inspection VPC - definition in variables.tf
 module "stockholm_inspection_vpc" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 3.1.0"
-  providers = {
-    aws   = aws.awsstockholm
-    awscc = awscc.awsccstockholm
-  }
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsstockholm }
 
   name       = var.stockholm_inspection_vpc.name
   cidr_block = var.stockholm_inspection_vpc.cidr_block
   az_count   = var.stockholm_inspection_vpc.number_azs
 
-  core_network = {
-    id  = awscc_networkmanager_core_network.core_network.core_network_id
-    arn = awscc_networkmanager_core_network.core_network.core_network_arn
-  }
+  # core_network = {
+  #   id  = aws_networkmanager_core_network.core_network.id
+  #   arn = aws_networkmanager_core_network.core_network.arn
+  # }
   # core_network_routes = {
   #   inspection = "10.0.0.0/8"
   # }
@@ -237,26 +235,24 @@ module "stockholm_inspection_vpc" {
       cidrs                   = slice(var.stockholm_inspection_vpc.inspection_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
       connect_to_public_natgw = true
     }
-    core_network = {
-      cidrs              = slice(var.stockholm_inspection_vpc.cnetwork_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
-      ipv6_support       = false
-      require_acceptance = true
-      accept_attachment  = true
+    # core_network = {
+    #   cidrs              = slice(var.stockholm_inspection_vpc.cnetwork_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
+    #   ipv6_support       = false
+    #   require_acceptance = true
+    #   accept_attachment  = true
 
-      tags = {
-        sharedservices = true
-      }
-    }
+    #   tags = {
+    #     sharedservices = true
+    #   }
+    # }
   }
 }
 
 # AWS Network Firewall Resource
 module "stockholm_network_firewall" {
-  source  = "aws-ia/networkfirewall/aws"
-  version = "0.0.2"
-  providers = {
-    aws = aws.awsstockholm
-  }
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "0.0.2"
+  providers = { aws = aws.awsstockholm }
 
   network_firewall_name   = "anfw-stockholm"
   network_firewall_policy = aws_networkfirewall_firewall_policy.stockholm_fwpolicy.arn
@@ -276,11 +272,9 @@ module "stockholm_network_firewall" {
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "stockholm_compute" {
-  for_each = module.stockholm_spoke_vpcs
-  source   = "./modules/compute"
-  providers = {
-    aws = aws.awsstockholm
-  }
+  for_each  = module.stockholm_spoke_vpcs
+  source    = "./modules/compute"
+  providers = { aws = aws.awsstockholm }
 
   project_name             = var.project_identifier
   vpc_name                 = each.key
@@ -294,11 +288,9 @@ module "stockholm_compute" {
 
 # VPC endpoints (SSM access)
 module "stockholm_vpc_endpoints" {
-  for_each = module.stockholm_spoke_vpcs
-  source   = "./modules/vpc_endpoints"
-  providers = {
-    aws = aws.awsstockholm
-  }
+  for_each  = module.stockholm_spoke_vpcs
+  source    = "./modules/vpc_endpoints"
+  providers = { aws = aws.awsstockholm }
 
   project_name             = var.project_identifier
   vpc_name                 = each.key
@@ -311,10 +303,8 @@ module "stockholm_vpc_endpoints" {
 # GLOBAL RESOURCES (IAM)
 # IAM module creates the IAM roles needed to publish VPC Flow Logs into CloudWatch Logs, and for EC2 instances to connect to Systems Manager (regardless the AWS Region)
 module "iam" {
-  source = "./modules/iam"
-  providers = {
-    aws = aws.awsoregon
-  }
+  source    = "./modules/iam"
+  providers = { aws = aws.awsoregon }
 
   project_name = var.project_identifier
 }
@@ -324,21 +314,18 @@ module "iam" {
 # RESOURCES IN OREGON (us-west-2)
 # Legacy VPC
 module "oregon_legacy_vpc" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 3.1.0"
-  providers = {
-    aws   = aws.awsoregon
-    awscc = awscc.awsccoregon
-  }
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsoregon }
 
   name       = var.oregon_legacy_vpc.name
   cidr_block = var.oregon_legacy_vpc.cidr_block
   az_count   = var.oregon_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.oregon_tgw.id
-  transit_gateway_routes = {
-    workload = "0.0.0.0/0"
-  }
+  # transit_gateway_routes = {
+  #   workload = "0.0.0.0/0"
+  # }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.oregon_legacy_vpc.endpoint_subnet_cidrs, 0, var.oregon_legacy_vpc.number_azs) }
@@ -394,10 +381,8 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "oregon_tgw_rt_propag
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "oregon_legacy_compute" {
-  source = "./modules/compute"
-  providers = {
-    aws = aws.awsoregon
-  }
+  source    = "./modules/compute"
+  providers = { aws = aws.awsoregon }
 
   project_name             = var.project_identifier
   vpc_name                 = "oregon_legacy_vpc"
@@ -411,10 +396,8 @@ module "oregon_legacy_compute" {
 
 # VPC endpoints (SSM access)
 module "oregon_legacy_endpoints" {
-  source = "./modules/vpc_endpoints"
-  providers = {
-    aws = aws.awsoregon
-  }
+  source    = "./modules/vpc_endpoints"
+  providers = { aws = aws.awsoregon }
 
   project_name             = var.project_identifier
   vpc_name                 = "oregon_legacy_vpc"
@@ -428,7 +411,7 @@ module "oregon_legacy_endpoints" {
 # resource "aws_networkmanager_transit_gateway_peering" "cwan_oregon_peering" {
 #   provider = aws.awsoregon
 
-#   core_network_id     = awscc_networkmanager_core_network.core_network.core_network_id
+#   core_network_id     = aws_networkmanager_core_network.core_network.id
 #   transit_gateway_arn = aws_ec2_transit_gateway.oregon_tgw.arn
 # }
 
@@ -470,21 +453,18 @@ module "oregon_legacy_endpoints" {
 # RESOURCES IN STOCKHOLM (us-west-2)
 # Legacy VPC
 module "stockholm_legacy_vpc" {
-  source  = "aws-ia/vpc/aws"
-  version = "= 3.1.0"
-  providers = {
-    aws   = aws.awsstockholm
-    awscc = awscc.awsccstockholm
-  }
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.0.0"
+  providers = { aws = aws.awsstockholm }
 
   name       = var.stockholm_legacy_vpc.name
   cidr_block = var.stockholm_legacy_vpc.cidr_block
   az_count   = var.stockholm_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.stockholm_tgw.id
-  transit_gateway_routes = {
-    workload = "0.0.0.0/0"
-  }
+  # transit_gateway_routes = {
+  #   workload = "0.0.0.0/0"
+  # }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.stockholm_legacy_vpc.endpoint_subnet_cidrs, 0, var.stockholm_legacy_vpc.number_azs) }
@@ -540,10 +520,8 @@ resource "aws_ec2_transit_gateway_route_table_propagation" "stockholm_tgw_rt_pro
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "stockholm_legacy_compute" {
-  source = "./modules/compute"
-  providers = {
-    aws = aws.awsstockholm
-  }
+  source    = "./modules/compute"
+  providers = { aws = aws.awsstockholm }
 
   project_name             = var.project_identifier
   vpc_name                 = "stockholm_legacy_vpc"
@@ -557,10 +535,8 @@ module "stockholm_legacy_compute" {
 
 # VPC endpoints (SSM access)
 module "stockholm_legacy_endpoints" {
-  source = "./modules/vpc_endpoints"
-  providers = {
-    aws = aws.awsstockholm
-  }
+  source    = "./modules/vpc_endpoints"
+  providers = { aws = aws.awsstockholm }
 
   project_name             = var.project_identifier
   vpc_name                 = "stockholm_legacy_vpc"
@@ -574,7 +550,7 @@ module "stockholm_legacy_endpoints" {
 # resource "aws_networkmanager_transit_gateway_peering" "cwan_stockholm_peering" {
 #   provider = aws.awsstockholm
 
-#   core_network_id     = awscc_networkmanager_core_network.core_network.core_network_id
+#   core_network_id     = aws_networkmanager_core_network.core_network.id
 #   transit_gateway_arn = aws_ec2_transit_gateway.stockholm_tgw.arn
 # }
 

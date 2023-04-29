@@ -108,7 +108,8 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   #     "0.0.0.0/0"
   #   ]
   #   destinations = [
-  #     ***INSERT_OUTPUTS_FROM_PREVIOUS_APPLY***
+  #     module.oregon_inspection_vpc.core_network_attachment.id,
+  #     module.stockholm_inspection_vpc.core_network_attachment.id
   #   ]
   # }
   # segment_actions {
@@ -118,7 +119,8 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   #     "0.0.0.0/0"
   #   ]
   #   destinations = [
-  #     ***INSERT_OUTPUTS_FROM_PREVIOUS_APPLY***
+  #     module.oregon_inspection_vpc.core_network_attachment.id,
+  #     module.stockholm_inspection_vpc.core_network_attachment.id
   #   ]
   # }
 

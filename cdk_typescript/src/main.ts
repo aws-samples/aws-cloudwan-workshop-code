@@ -78,7 +78,7 @@ new WorkloadStack(app, 'WorkloadProdEU', {
     region: 'eu-west-1',
   },
   vpcCidr: '10.3.0.0/16',
-  vpcName: 'eu-nonprod',
+  vpcName: 'eu-prod',
   cloudWanSegment: 'prod',
 });
 

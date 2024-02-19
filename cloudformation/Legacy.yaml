@@ -12,17 +12,17 @@ Parameters:
   CreateCWANPeering:
     Type: String
     Description: Create the Cloud WAN peering to TGW
-    Default: "false"
+    Default: 'false'
     AllowedValues: [true, false]
   CreateCWANAttachment:
     Type: String
     Description: Create the TGW Route Table attachment
-    Default: "false"
+    Default: 'false'
     AllowedValues: [true, false]
   CreateVPCRoutes:
     Type: String
     Description: Create the VPC routes to Transit Gateway
-    Default: "false"
+    Default: 'false'
     AllowedValues: [true, false]
 
 Conditions:
@@ -536,6 +536,7 @@ Resources:
 
   # Transit Gateway Route Table Attachment
   TGWRouteTableAttachment:
+    Condition: CreateAttachment
     Type: AWS::NetworkManager::TransitGatewayRouteTableAttachment
     DependsOn:
       - TGWPolicyTable

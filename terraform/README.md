@@ -5,7 +5,7 @@ AWS Cloud WAN is a managed wide-area networking (WAN) service that you can use t
 
 This repository shows you an example in Terraform of global communication with AWS Cloud WAN, showing the same architecture you can build in the [AWS Cloud WAN Workshop](https://catalog.workshops.aws/cloudwan/en-US).
 
-![architecture diagram](../images/cloud\_wan\_architecture.png "AWS Cloud WAN diagram")
+![architecture diagram](../images/cloud\\_wan\\_architecture.png "AWS Cloud WAN diagram")
 
 **NOTE**: The resources created incur costs in your AWS Account. Consider deleting the resources created once your tests are done. For more information, check the [AWS Cloud WAN pricing](https://aws.amazon.com/cloud-wan/pricing/).
 
@@ -18,37 +18,34 @@ This repository shows you an example in Terraform of global communication with A
 
 * Clone the repository
 * Modify *variables.tf* and *locals.tf* in the project root directory if there are any changes needed to the VPCs/Subnets/Security Groups/VPC Endpoints related configuration. The defaults would create required VPCs and other resources in **us-west-2** and **eu-north-1** AWS Regions.
-* If you want to test out the code outside the lab instructions, you will find the Cloud WAN policy in the *cloudwan\_policy.tf* file, the AWS Network Firewall policies in the *firewall\_policies.tf* file, and the rest of resources related to the architecture in *main.tf*.
+* If you want to test out the code outside the lab instructions, you will find the Cloud WAN policy in the *cloudwan\\_policy.tf* file, the AWS Network Firewall policies in the *firewall\\_policies.tf* file, and the rest of resources related to the architecture in *main.tf*.
 * Initialize Terraform using `terraform init`.
 
 ## Following the lab instructions
 
-**NOTE**: The final state of both workshop labs is codified in this repository. However, some pieces are commented so the first `terraform apply` will create only the initial architecture when starting Lab 1.
-
-* To follow the workshop, you can either use the AWS Management console as indicated in the workshop instructions, or uncomment the sections required (as explained below).
-* To create the whole architecture in one deployment and use `terraform apply`
+**NOTE**: The final state of both workshop labs is codified in this repository. However, some pieces are commented so the first `terraform apply` will create only the initial architecture when starting Lab 1. To create the whole architecture in one deployment, uncomment all the commented lines and use `terraform apply`
 
 ### Lab 1 - Build a global, segmented network with central egress
 
 * Step 1 - *Create/Review JSON for Core Network Policy*. Nothing to do here, everything is built with the first deployment.
-* Step 2 - *Update Core Network Policy*. This section updates the Core Network policy with the *attachment\_policies*. In *cloudwan\_policy.tf*, **uncomment lines 48 to 88**
+* Step 2 - *Update Core Network Policy*. This section updates the Core Network policy with the *attachment\\_policies*. In *cloudwan\\_policy.tf*, **uncomment lines 48 to 88**
   * Understand how the [Core Network policy data source](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) works, as it is used to simplify the definition of the policy - rather than using a JSON file.
 * Step 3 - *Create attachments*. This section attaches the Spoke and Inspection VPCs to the Core Network.
-  * In *main.tf*, **uncomment lines 61 - 64, 72 - 80, 94 - 97, 111 - 120, 188 - 191, 199 - 207, 221 - 224, 238 - 247**.
+  * In *main.tf*, **uncomment lines 59 - 62, 70 - 76, 90 - 93, 107 - 115, 120 - 140, 167 - 170, 178 - 184, 198 - 201, 215 - 223, 228 - 248**.
   * In *outputs.tf*, **uncomment 29, 30, 34 and 35**.
   * The VPC resources are handled by the following [VPC module](https://registry.terraform.io/modules/aws-ia/vpc/aws/latest), and the AWS Network Firewall resource (and some routing in the Inspection VPCs) by the [AWS Network Firewall module](https://registry.terraform.io/modules/aws-ia/networkfirewall/aws/latest), both created and maintained by AWS. Take some time to check the module and understand how the different resources are defined.
-* Step 4 - *Update Core Network Policy for routing*. Now we are adding more information to the Core Network policy, related to the routing from the Spoke VPCs to the Inspection VPCs. In *cloudwan\_policy.tf*, **uncomment lines 104 to 132**.
-* Step 5 - *Update VPC Route tables*. Configuring the VPC routes to point to the Core Network attachment. In *main.tf*, **uncomment lines 65 - 67, 98 - 100, 192 - 194, 225 - 227**.
+* Step 4 - *Update Core Network Policy for routing*. Now we are adding more information to the Core Network policy, related to the routing from the Spoke VPCs to the Inspection VPCs. In *cloudwan\\_policy.tf*, **uncomment lines 104 to 132**.
+* Step 5 - *Update VPC Route tables*. Configuring the VPC routes to point to the Core Network attachment. In *main.tf*, **uncomment lines 63 - 65, 94 - 96, 171 - 173, 202 - 204**.
 * Step 6 - *Perform tests to validate configuration*. Nothing to do here, follow the lab instructions.
 
 ### Lab 2 - Federate with AWS Transit Gateway
 
-* Step 1 - *Core Policy Updates*. We need to update the Core Network policy to include the "legacy" infrastructure (TGW and Legacy VPC). In *cloudwan\_policy.tf*, **uncomment lines 39 - 46, 90 - 102, and 134 - 142**.
-* Step 2 - *TGW Peering*. Create TGW peering to Cloud WAN in both Regions. The console creates in the same workflow the peering, TGW policy table, and associates the policy table to the peering; here we need to create all those resources. In *main.tf*, **uncomment lines 410 - 434, and 549 - 573**.
+* Step 1 - *Core Policy Updates*. We need to update the Core Network policy to include the "legacy" infrastructure (TGW and Legacy VPC). In *cloudwan\\_policy.tf*, **uncomment lines 39 - 46, 90 - 102, and 134 - 142**.
+* Step 2 - *TGW Peering*. Create TGW peering to Cloud WAN in both Regions. The console creates in the same workflow the peering, TGW policy table, and associates the policy table to the peering; here we need to create all those resources. In *main.tf*, **uncomment lines 346 - 369, and 469 - 492**.
 * Step 3 - *TGW Attachments*. Create the TGW route table attachments in Cloud WAN (in both Regions).
-  * In *main.tf* file, **uncomment lines 436 - 451, and 575 - 590**.
+  * In *main.tf* file, **uncomment lines 372 - 386, and 495 - 509**.
   * In *outputs.tf* file, **uncomment lines 31 and 36**.
-* Step 4 - *Update VPC and TGW Route Tables*. In this section, we have to create the VPC routing in the Legacy VPCs to communicate to the Transit Gateway. In *main.tf* file, **uncomment lines 326 - 328, and 465 - 467**.
+* Step 4 - *Update VPC and TGW Route Tables*. In this section, we have to create the VPC routing in the Legacy VPCs to communicate to the Transit Gateway. In *main.tf* file, **uncomment lines 277 - 279, and 400 - 402**.
   * Take your time to understand how the [VPC module](https://registry.terraform.io/modules/aws-ia/vpc/aws/latest) works, and how it abstracts the creation of TGW and Cloud WAN attachments (and routing to them).
 * Step 5 - *Validation*. Nothing to do here, follow the lab instructions.
 
@@ -74,37 +71,30 @@ This library is licensed under the MIT-0 License. See the LICENSE file.
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.57.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.9.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 4.57.0 |
-| <a name="provider_aws.awsoregon"></a> [aws.awsoregon](#provider\_aws.awsoregon) | 4.57.0 |
-| <a name="provider_aws.awsstockholm"></a> [aws.awsstockholm](#provider\_aws.awsstockholm) | 4.57.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 4.9.0 |
+| <a name="provider_aws.awsoregon"></a> [aws.awsoregon](#provider\_aws.awsoregon) | >= 4.9.0 |
+| <a name="provider_aws.awsstockholm"></a> [aws.awsstockholm](#provider\_aws.awsstockholm) | >= 4.9.0 |
 
 ## Modules
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_iam"></a> [iam](#module\_iam) | ./modules/iam | n/a |
 | <a name="module_oregon_compute"></a> [oregon\_compute](#module\_oregon\_compute) | ./modules/compute | n/a |
-| <a name="module_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#module\_oregon\_inspection\_vpc) | aws-ia/vpc/aws | = 4.0.0 |
+| <a name="module_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#module\_oregon\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
 | <a name="module_oregon_legacy_compute"></a> [oregon\_legacy\_compute](#module\_oregon\_legacy\_compute) | ./modules/compute | n/a |
-| <a name="module_oregon_legacy_endpoints"></a> [oregon\_legacy\_endpoints](#module\_oregon\_legacy\_endpoints) | ./modules/vpc_endpoints | n/a |
-| <a name="module_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#module\_oregon\_legacy\_vpc) | aws-ia/vpc/aws | = 4.0.0 |
-| <a name="module_oregon_network_firewall"></a> [oregon\_network\_firewall](#module\_oregon\_network\_firewall) | aws-ia/networkfirewall/aws | 0.0.2 |
-| <a name="module_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#module\_oregon\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.0.0 |
-| <a name="module_oregon_vpc_endpoints"></a> [oregon\_vpc\_endpoints](#module\_oregon\_vpc\_endpoints) | ./modules/vpc_endpoints | n/a |
+| <a name="module_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#module\_oregon\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#module\_oregon\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.2 |
 | <a name="module_stockholm_compute"></a> [stockholm\_compute](#module\_stockholm\_compute) | ./modules/compute | n/a |
-| <a name="module_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#module\_stockholm\_inspection\_vpc) | aws-ia/vpc/aws | = 4.0.0 |
+| <a name="module_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#module\_stockholm\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
 | <a name="module_stockholm_legacy_compute"></a> [stockholm\_legacy\_compute](#module\_stockholm\_legacy\_compute) | ./modules/compute | n/a |
-| <a name="module_stockholm_legacy_endpoints"></a> [stockholm\_legacy\_endpoints](#module\_stockholm\_legacy\_endpoints) | ./modules/vpc_endpoints | n/a |
-| <a name="module_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#module\_stockholm\_legacy\_vpc) | aws-ia/vpc/aws | = 4.0.0 |
-| <a name="module_stockholm_network_firewall"></a> [stockholm\_network\_firewall](#module\_stockholm\_network\_firewall) | aws-ia/networkfirewall/aws | 0.0.2 |
-| <a name="module_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#module\_stockholm\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.0.0 |
-| <a name="module_stockholm_vpc_endpoints"></a> [stockholm\_vpc\_endpoints](#module\_stockholm\_vpc\_endpoints) | ./modules/vpc_endpoints | n/a |
+| <a name="module_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#module\_stockholm\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#module\_stockholm\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.2 |
 
 ## Resources
 

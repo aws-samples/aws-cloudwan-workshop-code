@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
-
 Description: Inspection VPC and AWS Network Firewall
+Transform: "AWS::LanguageExtensions"
 
 Parameters:
   CoreNetworkId:
@@ -9,373 +9,161 @@ Parameters:
   CoreNetworkArn:
     Type: String
     Default: ""
-  CreateCWANAttachment:
+  Deployment:
     Type: String
-    Description: Create the Cloud WAN VPC attachments
-    Default: "false"
-    AllowedValues: [true, false]  
-  CreateVPCRoutes:
-    Type: String
-    Description: Create VPC routes to Core Network attachments
-    Default: "false"
-    AllowedValues: [true, false]
-  RouteCidr:
-    Description: CIDR range for Inspection VPC RTs to point to Cloud WAN attachment
-    Type: String
-    Default: "10.0.0.0/8"
-    AllowedPattern: ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$
+    Description: Workshop deployment phase
+    Default: "initial"
+    AllowedValues: ["initial", "lab1", "lab2"]
 
 Conditions:
-  CWANValuesAdded: !And
-    - !Not [!Equals [!Ref CoreNetworkId, ""]]
-    - !Not [!Equals [!Ref CoreNetworkArn, ""]]
-  CreateAttachment: !And
-    - !Equals [!Ref CreateCWANAttachment, 'true']
-    - !Condition CWANValuesAdded
-  CreateRoutes: !And
-    - !Condition CWANValuesAdded
-    - !Equals [!Ref CreateCWANAttachment, 'true']
-    - !Equals [!Ref CreateVPCRoutes, 'true']
+  DeployLab1: !Equals [!Ref Deployment, "lab1"]
+
+Mappings:
+  EgressInspectionVpcCIDR:
+    eu-north-1:
+      CIDR: 100.64.0.0/16
+      PublicSubneta: 100.64.0.0/28
+      PublicSubnetb: 100.64.0.16/28
+      FirewallSubneta: 100.64.0.32/28
+      FirewallSubnetb: 100.64.0.48/28
+      CWANSubneta: 100.64.0.64/28
+      CWANSubnetb: 100.64.0.80/28
+    us-west-2:
+      CIDR: 100.64.0.0/16
+      PublicSubneta: 100.64.0.0/28
+      PublicSubnetb: 100.64.0.16/28
+      FirewallSubneta: 100.64.0.32/28
+      FirewallSubnetb: 100.64.0.48/28
+      CWANSubneta: 100.64.0.64/28
+      CWANSubnetb: 100.64.0.80/28
+  InspectionVpcCIDR:
+    eu-north-1:
+      CIDR: 100.64.0.0/16
+      FirewallSubneta: 100.64.0.0/28
+      FirewallSubnetb: 100.64.0.16/28
+      CWANSubneta: 100.64.0.32/28
+      CWANSubnetb: 100.64.0.48/28
+    us-west-2:
+      CIDR: 100.64.0.0/16
+      FirewallSubneta: 100.64.0.0/28
+      FirewallSubnetb: 100.64.0.16/28
+      CWANSubneta: 100.64.0.32/28
+      CWANSubnetb: 100.64.0.48/28
 
 Resources:
-# ---------- INSPECTION VPC ----------
-  # VPC resource
-  VPCInspection:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W60
-            reason: VPC Flow Logs not required for workshop
+  # ---------- Egress Inspection VPC ----------
+  EgressInspectionVPC:
     Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: "100.64.0.0/16"
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
+    Properties: 
+      CidrBlock: !FindInMap [EgressInspectionVpcCIDR, !Ref 'AWS::Region', CIDR]
+      Tags: 
         - Key: Name
           Value: !Join
-            - "-"
-            - - "inspection"
+            - '-'
+            - - egress-inspection-vpc
+              - !Ref AWS::StackName
               - !Ref AWS::Region
-              - "vpc"
 
-  # Subnets
-  VPCInspectionSubnetFirewall1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [0, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "firewall-subnet-1"
-
-  VPCInspectionSubnetFirewall2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [1, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "firewall-subnet-2"
-
-  VPCInspectionSubnetPublic1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [2, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "public-subnet-1"
-
-  VPCInspectionSubnetPublic2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [3, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "public-subnet-2"
-
-  VPCInspectionSubnetCWAN1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [4, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "cwan-subnet-1"
-
-  VPCInspectionSubnetCWAN2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCInspection
-      CidrBlock: !Select [5, !Cidr [!GetAtt VPCInspection.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection-"
-              - !Ref AWS::Region
-              - "cwan-subnet-2"
-
-  # IGW and NATGWs
   IGW:
     Type: AWS::EC2::InternetGateway
     Properties:
-      Tags:
+      Tags: 
         - Key: Name
-          Value: Inspection-IGW
-
+          Value: igw
+  
   IGWAttachment:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       InternetGatewayId: !Ref IGW
-      VpcId: !Ref VPCInspection
+      VpcId: !Ref EgressInspectionVPC
 
-  NATGW1:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId:
-        Fn::GetAtt:
-          - EIP1
-          - AllocationId
-      SubnetId:
-        Ref: VPCInspectionSubnetPublic1
-      Tags:
-        - Key: Name
-          Value: Inspection-NATGW1
-
-  EIP1:
-    DependsOn: IGWAttachment
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  NATGW2:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId:
-        Fn::GetAtt:
-          - EIP2
-          - AllocationId
-      SubnetId:
-        Ref: VPCInspectionSubnetPublic2
-      Tags:
-        - Key: Name
-          Value: Inspection-NATGW2
-
-  EIP2:
-    DependsOn: IGWAttachment
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  # Route Tables
-  VPCInspectionRouteTableFirewall1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "firewall-rt-1"
+  # For::Each iteration: per subnet type (Firewall, CWAN, Public) and AZ (2 AZs)
+  # Resources to create: 6 subnets, 6 route tables, 6 route table associations - obtaining AZ affinity
+  'Fn::ForEach::EgressInspectionSubnetTypes':
+    - SubnetType
+    - [Firewall, CWAN, Public]
+    - '${SubnetType}':
+      'Fn::ForEach::AZ':
+        - AvailabilityZone
+        - [a, b]
+        - 'EgressInspection${SubnetType}Subnet${AvailabilityZone}':
+            Type: AWS::EC2::Subnet
+            Properties:
+              VpcId: !Ref EgressInspectionVPC
+              AvailabilityZone: !Sub ${AWS::Region}${AvailabilityZone}
+              CidrBlock: !FindInMap [EgressInspectionVpcCIDR, !Ref 'AWS::Region', 'Fn::Sub': '${SubnetType}Subnet${AvailabilityZone}']
+              Tags:
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub egress-inspection-subnet-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+          'EgressInspection${SubnetType}RouteTable${AvailabilityZone}':
+            Type: AWS::EC2::RouteTable
+            Properties:
+              VpcId: !Ref EgressInspectionVPC
+              Tags: 
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub egress-inspection-rt-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+          'EgressInspection${SubnetType}RouteTableAssociation${AvailabilityZone}':
+            Type: AWS::EC2::SubnetRouteTableAssociation
+            Properties: 
+              RouteTableId: !Ref
+                'Fn::Sub': 'EgressInspection${SubnetType}RouteTable${AvailabilityZone}'
+              SubnetId: !Ref
+                'Fn::Sub': 'EgressInspection${SubnetType}Subnet${AvailabilityZone}'
   
-  VPCInspectionFirewallSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall1
-      SubnetId: !Ref VPCInspectionSubnetFirewall1
-
-  VPCInspectionRouteTableFirewall2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "firewall-rt-2"
+  # For::Each iteration: per Availability Zone
+  # 1 - 0.0.0.0/0 route from Public subnets to IGW
+  # 2 - 0.0.0.0/0 route from Firewall subnets to NATGW
+  # 3 - NAT gateways and Elastic IPs
+  'Fn::ForEach::EgressInspectionVPCRoutes':
+    - AvailabilityZone
+    - [a, b]
+    - 'DefaultPublicToIGW${AvailabilityZone}':
+        Type: AWS::EC2::Route
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'EgressInspectionPublicRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '0.0.0.0/0'
+          GatewayId: !Ref IGW
+      'DefaultFirewallToNATGW${AvailabilityZone}':
+        Type: AWS::EC2::Route
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'EgressInspectionFirewallRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '0.0.0.0/0'
+          NatGatewayId: !Ref 
+            'Fn::Sub': 'EgressInspectionNATGW${AvailabilityZone}'
+      'EgressInspectionNATGW${AvailabilityZone}':
+        Type: AWS::EC2::NatGateway
+        Properties:
+          AllocationId: !GetAtt
+            - 'Fn::Sub': 'EgressInspectionEIP${AvailabilityZone}'
+            - AllocationId
+          SubnetId: !Ref
+            'Fn::Sub': 'EgressInspectionPublicSubnet${AvailabilityZone}'
+      'EgressInspectionEIP${AvailabilityZone}':
+        Type: AWS::EC2::EIP
+        Properties:
+          Domain: vpc
   
-  VPCInspectionFirewallSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall2
-      SubnetId: !Ref VPCInspectionSubnetFirewall2
-
-  VPCInspectionRouteTablePublic1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "public-rt-1"
-  
-  VPCInspectionPublicSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTablePublic1
-      SubnetId: !Ref VPCInspectionSubnetPublic1
-
-  VPCInspectionRouteTablePublic2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "public-rt-2"
-  
-  VPCInspectionPublicSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTablePublic2
-      SubnetId: !Ref VPCInspectionSubnetPublic2
-
-  VPCInspectionRouteTableCWAN1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "cwan-rt-1"
-  
-  VPCInspectionCWANSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableCWAN1
-      SubnetId: !Ref VPCInspectionSubnetCWAN1
-
-  VPCInspectionRouteTableCWAN2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCInspection
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "inspection"
-              - !Ref AWS::Region
-              - "cwan-rt-1"
-  
-  VPCInspectionCWANSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableCWAN2
-      SubnetId: !Ref VPCInspectionSubnetCWAN2
-
-  # Route: Public Subnets to Internet Gateway
-  PublicToIGW1:
-    Type: AWS::EC2::Route
-    DependsOn: IGWAttachment
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTablePublic1
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref IGW
-
-  PublicToIGW2:
-    Type: AWS::EC2::Route
-    DependsOn: IGWAttachment
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTablePublic2
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref IGW
-
-  # Route: Firewall subnets to Internet via NATGW
-  FirewallToNATGW1:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGW1
-  
-  FirewallToNATGW2:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall2
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGW2
-  
-# ---------- AWS NETWORK FIREWALL ----------
-
   # Network Firewall resource
   NetworkFirewall:
     Type: AWS::NetworkFirewall::Firewall
     Properties:
       FirewallName: !Join
         - "-"
-        - - "network-firewall"
+        - - "egress-inspection-firewall"
           - !Ref AWS::Region
       FirewallPolicyArn: !GetAtt NetworkFirewallRulesPolicy.FirewallPolicyArn
+      VpcId: !Ref EgressInspectionVPC
       SubnetMappings:
-        - SubnetId: !Ref VPCInspectionSubnetFirewall1
-        - SubnetId: !Ref VPCInspectionSubnetFirewall2
-      VpcId: !Ref VPCInspection
+        - SubnetId: !Ref EgressInspectionFirewallSubneta
+        - SubnetId: !Ref EgressInspectionFirewallSubnetb
   
   # Firewall Policy
   NetworkFirewallRulesPolicy:
@@ -386,40 +174,110 @@ Resources:
           - "aws:forward_to_sfe"
         StatelessFragmentDefaultActions:
           - "aws:forward_to_sfe"
+        StatelessRuleGroupReferences:
+          - Priority: 10
+            ResourceArn: !GetAtt NetworkFirewallStatelessDropRemote.RuleGroupArn
+        StatefulEngineOptions:
+          RuleOrder: STRICT_ORDER
+        StatefulDefaultActions:
+          - "aws:drop_strict"
+          - "aws:alert_strict"
         StatefulRuleGroupReferences:
-          - ResourceArn: !GetAtt NetworkFirewallStatefulICMPAlert.RuleGroupArn
+          - Priority: 10
+            ResourceArn: !GetAtt NetworkFirewallStatefulAllowDomains.RuleGroupArn
+          - Priority: 20
+            ResourceArn: !GetAtt NetworkFirewallStatefulAllowIcmp.RuleGroupArn  
       FirewallPolicyName: !Join
         - "-"
-        - - "firewall-policy"
+        - - "egress-inspection-firewall-policy"
           - !Ref AWS::Region
   
-  # Stateful Rule Group - ICMP Alert
-  NetworkFirewallStatefulICMPAlert:
+  # Stateless Rule Group - Dropping any SSH connection
+  NetworkFirewallStatelessDropRemote:
+    Type: AWS::NetworkFirewall::RuleGroup
+    Properties:
+      Capacity: 2
+      RuleGroupName: !Join
+        - "-"
+        - - "drop-remote"
+          - !Ref AWS::StackName
+      Description: Drop remote SSH connections
+      Type: STATELESS
+      RuleGroup:
+        RulesSource:
+          StatelessRulesAndCustomActions:
+            StatelessRules:
+              - Priority: 1
+                RuleDefinition:
+                  MatchAttributes:
+                    Protocols:
+                      - 6
+                    Sources:
+                      - AddressDefinition: 0.0.0.0/0
+                    SourcePorts:
+                      - FromPort: 22
+                        ToPort: 22
+                    Destinations:
+                      - AddressDefinition: 0.0.0.0/0
+                    DestinationPorts:
+                      - FromPort: 22
+                        ToPort: 22
+                  Actions:
+                    - "aws:drop"
+
+  # Stateful Rule Group - Domain Pass
+  NetworkFirewallStatefulAllowDomains:
     Type: AWS::NetworkFirewall::RuleGroup
     Properties:
       Capacity: 100
-      RuleGroupName: ICMPAlert
+      RuleGroupName: !Join
+        - "-"
+        - - "allow-domain"
+          - !Ref AWS::StackName
+      Description: Allowing domains
       Type: STATEFUL
-      Description: Alerting ICMP traffic
       RuleGroup:
+        StatefulRuleOptions:
+          RuleOrder: STRICT_ORDER
         RulesSource:
-          StatefulRules:
-            - Action: ALERT
-              RuleOptions:
-                - Keyword: "sid:1" 
-              Header:
-                Protocol: ICMP
-                Source: ANY
-                Destination: ANY
-                Direction: ANY
-                DestinationPort: ANY
-                SourcePort: ANY
+          RulesString: |-
+            pass tcp any any <> $EXTERNAL_NET 443 (msg:"Allowing TCP in port 443"; flow:not_established; sid:892123; rev:1;)
+            pass tls any any -> $EXTERNAL_NET 443 (tls.sni; dotprefix; content:".amazon.com"; endswith; msg:"Allowing .amazon.com HTTPS requests"; sid:892125; rev:1;)
+  
+  # Stateful Rule Group - ICMP Alert and Pass
+  NetworkFirewallStatefulAllowIcmp:
+    Type: AWS::NetworkFirewall::RuleGroup
+    Properties:
+      Capacity: 100
+      RuleGroupName: !Join
+        - "-"
+        - - "allow-icmp"
+          - !Ref AWS::StackName
+      Type: STATEFUL
+      RuleGroup:
+        StatefulRuleOptions:
+          RuleOrder: STRICT_ORDER
+        RulesSource:
+          RulesString: |-
+            alert icmp 10.0.0.0/8 any -> 10.0.0.0/8 any (msg:"Alert on ICMP traffic between/within Prod and Third Party VPCs"; sid:199407051; rev:1;)
+            pass icmp 10.0.0.0/8 any -> 10.0.0.0/8 any (msg:"Allow ICMP traffic between/within Prod and Third Party VPCs"; sid:199407052; rev:1;)
+            alert icmp 10.0.0.0/8 any -> 192.168.100.0/24 any (msg:"Alert on ICMP traffic from Prod/Third Party to On-Premises"; sid:199407053; rev:1;)
+            pass icmp 10.0.0.0/8 any -> 192.168.100.0/24 any (msg:"Allow ICMP traffic from Prod/Third Party to On-Premises"; sid:199407054; rev:1;)
 
-  # Stateful Rule Group (PLACEHOLDER)
+  # CloudWatch log group (Flow)
+  EgressInspectionVpcFirewallLogFlowGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/network-firewall/egress-inspection/${AWS::Region}/flow
 
+  # CloudWatch log group (Alert)
+  EgressInspectionVpcFirewallLogAlertGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/network-firewall/egress-inspection/${AWS::Region}/alert
 
-  # Logging configuration
-  NetworkFirewallLoggingConfiguration:
+  # AWS Network Firewall log configuration
+  EgressInspectionVpcFirewallLog:
     Type: AWS::NetworkFirewall::LoggingConfiguration
     Properties:
       FirewallArn: !Ref NetworkFirewall
@@ -428,104 +286,13 @@ Resources:
           - LogType: FLOW
             LogDestinationType: CloudWatchLogs
             LogDestination:
-              logGroup: !Ref FWFlowLogGroup
+              logGroup: !Ref EgressInspectionVpcFirewallLogFlowGroup
           - LogType: ALERT
             LogDestinationType: CloudWatchLogs
             LogDestination:
-              logGroup: !Ref FWAlertLogGroup
+              logGroup: !Ref EgressInspectionVpcFirewallLogAlertGroup
 
-  FWAlertLogGroup:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W84
-            reason: Encryption not required for this log group
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: NetworkFirewallAlertLogs
-      RetentionInDays: 7
-    UpdateReplacePolicy: Delete
-    DeletionPolicy: Delete
-
-  FWFlowLogGroup:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W84
-            reason: Encryption not required for this log group
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: NetworkFirewallFlowLogs
-      RetentionInDays: 7
-    UpdateReplacePolicy: Delete
-    DeletionPolicy: Delete
-
-# ---------- CLOUD WAN ATTACHMENT ----------
-
-  VPCInspectionCWANAttachment:
-    Condition: CreateAttachment
-    Type: AWS::NetworkManager::VpcAttachment
-    Properties:
-      CoreNetworkId: !Ref CoreNetworkId
-      SubnetArns:
-        - Fn::Join:
-            - ""
-            - - "arn:aws:ec2:"
-              - Ref: AWS::Region
-              - ":"
-              - Ref: AWS::AccountId
-              - ":subnet/"
-              - Ref: VPCInspectionSubnetCWAN1
-        - Fn::Join:
-            - ""
-            - - "arn:aws:ec2:"
-              - Ref: AWS::Region
-              - ":"
-              - Ref: AWS::AccountId
-              - ":subnet/"
-              - Ref: VPCInspectionSubnetCWAN2
-      Tags:
-        - Key: sharedservices
-          Value: true
-      VpcArn:
-        Fn::Join:
-          - ""
-          - - "arn:"
-            - Ref: AWS::Partition
-            - ":ec2:"
-            - Ref: AWS::Region
-            - ":"
-            - Ref: AWS::AccountId
-            - ":vpc/"
-            - Ref: VPCInspection
-
-# ---------- VPC ROUTES TO CLOUD WAN AND NETWORK FIREWALL (CUSTOM RESOURCES) ----------
-
-  # Routes from Firewall subnets to Cloud WAN attachment
-  RouteFirewallToCWAN1:
-    Condition: CreateRoutes
-    Type: Custom::RouteTableEntry
-    DependsOn:
-      - VPCInspectionCWANAttachment
-      - FunctionLogGroup
-    Properties:
-      ServiceToken: !GetAtt CloudWanRouteFunction.Arn
-      Cidr: !Ref RouteCidr
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall1
-      CoreNetworkArn: !Ref CoreNetworkArn
-
-  RouteFirewallToCWAN2:
-    Condition: CreateRoutes
-    Type: Custom::RouteTableEntry
-    DependsOn:
-      - VPCInspectionCWANAttachment
-      - FunctionLogGroup
-    Properties:
-      ServiceToken: !GetAtt CloudWanRouteFunction.Arn
-      Cidr: !Ref RouteCidr
-      RouteTableId: !Ref VPCInspectionRouteTableFirewall2
-      CoreNetworkArn: !Ref CoreNetworkArn
-  
+  # ---------- CUSTOM RESOURCE: VPC routes to Network Firewall (Egress Inspection VPC) ----------  
   # Routes from Public subnets to network via the Firewall endpoints
   RoutePublicToFirewall1:
     Type: Custom::RouteTableEntry
@@ -534,9 +301,9 @@ Resources:
     Properties:
       ServiceToken: !GetAtt FirewallRouteFunction.Arn
       FirewallArn: !GetAtt NetworkFirewall.FirewallArn
-      SubnetAz: !GetAtt VPCInspectionSubnetFirewall1.AvailabilityZone
-      DestinationCidr: !Ref RouteCidr
-      RouteTableId: !Ref VPCInspectionRouteTablePublic1
+      SubnetAz: !GetAtt EgressInspectionFirewallSubneta.AvailabilityZone
+      DestinationCidr: "10.0.0.0/8"
+      RouteTableId: !Ref EgressInspectionPublicRouteTablea
 
   RoutePublicToFirewall2:
     Type: Custom::RouteTableEntry
@@ -545,9 +312,9 @@ Resources:
     Properties:
       ServiceToken: !GetAtt FirewallRouteFunction.Arn
       FirewallArn: !GetAtt NetworkFirewall.FirewallArn
-      SubnetAz: !GetAtt VPCInspectionSubnetFirewall2.AvailabilityZone
-      DestinationCidr: !Ref RouteCidr
-      RouteTableId: !Ref VPCInspectionRouteTablePublic2
+      SubnetAz: !GetAtt EgressInspectionFirewallSubnetb.AvailabilityZone
+      DestinationCidr: "10.0.0.0/8"
+      RouteTableId: !Ref EgressInspectionPublicRouteTableb
 
   # Routes from CWAN subnets to Internet via the Firewall endpoints
   RouteCWANToFirewall1:
@@ -557,9 +324,9 @@ Resources:
     Properties:
       ServiceToken: !GetAtt FirewallRouteFunction.Arn
       FirewallArn: !GetAtt NetworkFirewall.FirewallArn
-      SubnetAz: !GetAtt VPCInspectionSubnetFirewall1.AvailabilityZone
+      SubnetAz: !GetAtt EgressInspectionFirewallSubneta.AvailabilityZone
       DestinationCidr: "0.0.0.0/0"
-      RouteTableId: !Ref VPCInspectionRouteTableCWAN1
+      RouteTableId: !Ref EgressInspectionCWANRouteTablea
 
   RouteCWANToFirewall2:
     Type: Custom::RouteTableEntry
@@ -568,11 +335,11 @@ Resources:
     Properties:
       ServiceToken: !GetAtt FirewallRouteFunction.Arn
       FirewallArn: !GetAtt NetworkFirewall.FirewallArn
-      SubnetAz: !GetAtt VPCInspectionSubnetFirewall2.AvailabilityZone
+      SubnetAz: !GetAtt EgressInspectionFirewallSubnetb.AvailabilityZone
       DestinationCidr: "0.0.0.0/0"
-      RouteTableId: !Ref VPCInspectionRouteTableCWAN2
+      RouteTableId: !Ref EgressInspectionCWANRouteTableb
 
-  # Lambda functions to create routes to Cloud WAN and Firewall endpoints
+  # Lambda functions to create routes to Firewall endpoints
   RouteFunctionRole:
     Type: AWS::IAM::Role
     Properties:
@@ -602,6 +369,7 @@ Resources:
                   - network-firewall:DescribeFirewall
                 Resource:
                   - !GetAtt NetworkFirewall.FirewallArn
+                  - !GetAtt InspectionNetworkFirewall.FirewallArn
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
@@ -616,129 +384,6 @@ Resources:
       LogGroupName: '/aws/lambda/VPCRouteFunctions'
       RetentionInDays: 7
 
-  CloudWanRouteFunction:
-    Condition: CreateRoutes
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W58
-            reason: CWL permissions granted by use of AWSLambdaBasicExecutionRole
-          - id: W89
-            reason: No requirement for this function to be in a VPC
-          - id: W92
-            reason: No requirement to limit simultaneous executions
-    Type: AWS::Lambda::Function
-    Properties:
-      Description: Manage route table entry for CoreNetwork
-      Runtime: python3.9
-      Timeout: 10
-      Role: !GetAtt RouteFunctionRole.Arn
-      Handler: index.lambda_handler
-      Code:
-        ZipFile: |-
-          import logging
-          import boto3
-          import json
-          import cfnresponse
-          from botocore.exceptions import ClientError
-
-          log = logging.getLogger("handler")
-          log.setLevel(logging.INFO)
-
-
-          def lambda_handler(event, context):
-              try:
-                  log.info("Received event: %s", json.dumps(event))
-                  action = event["RequestType"]
-                  cidr = event["ResourceProperties"]["Cidr"]
-                  table_id = event["ResourceProperties"]["RouteTableId"]
-                  core_arn = event["ResourceProperties"]["CoreNetworkArn"]
-                  ec2 = boto3.client("ec2")
-                  response = {}
-                  if action == "Create":
-                      log.info(
-                          "Creating route to %s with arn %s for table %s",
-                          cidr,
-                          core_arn,
-                          table_id,
-                      )
-                      response = ec2.create_route(
-                          DestinationCidrBlock=cidr,
-                          RouteTableId=table_id,
-                          CoreNetworkArn=core_arn,
-                      )
-                      print(response)
-                  if action == "Delete":
-                      log.info("Deleting route to %s in table %s", cidr, table_id)
-                      try:
-                          response = ec2.delete_route(
-                              DestinationCidrBlock=cidr,
-                              RouteTableId=table_id
-                          )
-                          print(response)
-                      except ClientError as error:
-                          if error.response["Error"]["Code"] == "InvalidRoute.NotFound":
-                              response = {"Return": True}
-                          else:
-                              raise error
-                  if action == "Update":
-                      old_cidr = event["OldResourceProperties"]["Cidr"]
-                      old_table_id = event["OldResourceProperties"]["RouteTableId"]
-                      if old_cidr == cidr and old_table_id == table_id:
-                          log.info(
-                              "Updating route table %s entry for %s to %s",
-                              table_id,
-                              cidr,
-                              core_arn,
-                          )
-                          response = ec2.replace_route(
-                              DestinationCidrBlock=cidr,
-                              RouteTableId=table_id,
-                              CoreNetworkArn=core_arn,
-                          )
-                          print(response)
-                          response["Return"] = True
-                      else:
-                          log.info(
-                              "Replacing route with interruption due to change in cidr and/or table id"
-                          )
-                          try:
-                              response = ec2.delete_route(
-                                  DestinationCidrBlock=old_cidr, RouteTableId=old_table_id
-                              )
-                          except ClientError as error:
-                              if error.response["Error"]["Code"] != "InvalidRoute.NotFound":
-                                  raise error
-                          log.info(
-                              "Creating replacement route %s to %s in table %s",
-                              cidr,
-                              core_arn,
-                              table_id,
-                          )
-                          response = ec2.create_route(
-                              DestinationCidrBlock=cidr,
-                              RouteTableId=table_id,
-                              CoreNetworkArn=core_arn,
-                          )
-                  if "Return" in response:
-                      if response["Return"]:
-                          cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-                          return
-                      cfnresponse.send(
-                          event, context, cfnresponse.FAILED, {}, reason="API request failed"
-                      )
-                      return
-                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
-              except:
-                  log.exception("whoops")
-                  cfnresponse.send(
-                      event,
-                      context,
-                      cfnresponse.FAILED,
-                      {},
-                      reason="Caught exception, check logs",
-                  )
-
   FirewallRouteFunction:
     Metadata:
       cfn_nag:
@@ -752,7 +397,7 @@ Resources:
     Type: AWS::Lambda::Function
     Properties:
       Description: Manage route table entry for CoreNetwork
-      Runtime: python3.9
+      Runtime: python3.12
       Timeout: 10
       Role: !GetAtt RouteFunctionRole.Arn
       Handler: index.on_event
@@ -764,7 +409,6 @@ Resources:
           import cfnresponse
 
           logger = logging.getLogger(__name__)
-
 
           nfw = boto3.client("network-firewall")
           ec2 = boto3.client("ec2")
@@ -800,12 +444,10 @@ Resources:
               physical_resource_id = f'{logical_id}-{request_id.replace("-", "")}.txt'
               return physical_resource_id
 
-
           def delete(event):
               route_table_id = event["ResourceProperties"]["RouteTableId"]
               destination_cidr = event["ResourceProperties"]["DestinationCidr"]
               ec2.delete_route(DestinationCidrBlock=destination_cidr, RouteTableId=route_table_id)
-
 
           def on_event(event, context):
             if event["RequestType"] == "Create":
@@ -820,3 +462,244 @@ Resources:
               delete(event)
               cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
               return
+
+  # ---------- INSPECTION VPC ----------
+  InspectionVPC:
+    Type: AWS::EC2::VPC
+    Properties: 
+      CidrBlock: !FindInMap [InspectionVpcCIDR, !Ref 'AWS::Region', CIDR]
+      Tags: 
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - inspection-vpc
+              - !Ref AWS::StackName
+              - !Ref AWS::Region
+
+  # Subnets, Route Tables, and Associations
+  'Fn::ForEach::InspectionSubnetTypes':
+    - SubnetType
+    - [Firewall, CWAN]
+    - '${SubnetType}':
+      'Fn::ForEach::AZ':
+        - AvailabilityZone
+        - [a, b]
+        - 'Inspection${SubnetType}Subnet${AvailabilityZone}':
+            Type: AWS::EC2::Subnet
+            Properties:
+              VpcId: !Ref InspectionVPC
+              AvailabilityZone: !Sub ${AWS::Region}${AvailabilityZone}
+              CidrBlock: !FindInMap [InspectionVpcCIDR, !Ref 'AWS::Region', 'Fn::Sub': '${SubnetType}Subnet${AvailabilityZone}']
+              Tags:
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub inspection-subnet-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+          'Inspection${SubnetType}RouteTable${AvailabilityZone}':
+            Type: AWS::EC2::RouteTable
+            Properties:
+              VpcId: !Ref InspectionVPC
+              Tags: 
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub inspection-rt-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+
+          'Inspection${SubnetType}RouteTableAssociation${AvailabilityZone}':
+            Type: AWS::EC2::SubnetRouteTableAssociation
+            Properties: 
+              RouteTableId: !Ref
+                'Fn::Sub': 'Inspection${SubnetType}RouteTable${AvailabilityZone}'
+              SubnetId: !Ref
+                'Fn::Sub': 'Inspection${SubnetType}Subnet${AvailabilityZone}'
+
+  # Network Firewall
+  InspectionNetworkFirewall:
+    Type: AWS::NetworkFirewall::Firewall
+    Properties:
+      FirewallName: !Sub inspection-firewall-${AWS::Region}
+      FirewallPolicyArn: !Ref InspectionFirewallPolicy
+      VpcId: !Ref InspectionVPC
+      SubnetMappings:
+        - SubnetId: !Ref InspectionFirewallSubneta
+        - SubnetId: !Ref InspectionFirewallSubnetb
+
+  # Firewall Policy
+  InspectionFirewallPolicy:
+    Type: AWS::NetworkFirewall::FirewallPolicy
+    Properties:
+      FirewallPolicy:
+        StatelessDefaultActions:
+          - "aws:forward_to_sfe"
+        StatelessFragmentDefaultActions:
+          - "aws:forward_to_sfe"
+        StatefulEngineOptions:
+          RuleOrder: STRICT_ORDER
+        StatefulDefaultActions:
+          - "aws:drop_strict"
+          - "aws:alert_strict"
+        StatefulRuleGroupReferences:
+          - Priority: 10
+            ResourceArn: !GetAtt NetworkFirewallStatefulAllowIcmp.RuleGroupArn  
+      FirewallPolicyName: !Sub inspection-firewall-policy-${AWS::Region}
+
+  # CloudWatch Log Groups
+  InspectionFirewallLogFlowGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/network-firewall/inspection/${AWS::Region}/flow
+
+  InspectionFirewallLogAlertGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/network-firewall/inspection/${AWS::Region}/alert
+
+  # Firewall Logging Configuration
+  InspectionFirewallLogging:
+    Type: AWS::NetworkFirewall::LoggingConfiguration
+    Properties:
+      FirewallArn: !Ref InspectionNetworkFirewall
+      LoggingConfiguration:
+        LogDestinationConfigs:
+          - LogType: FLOW
+            LogDestinationType: CloudWatchLogs
+            LogDestination:
+              logGroup: !Ref InspectionFirewallLogFlowGroup
+          - LogType: ALERT
+            LogDestinationType: CloudWatchLogs
+            LogDestination:
+              logGroup: !Ref InspectionFirewallLogAlertGroup
+
+  # ---------- CUSTOM RESOURCE: VPC routes to Network Firewall (InspectionVPC) ----------
+  RouteInspectionCWANToFirewall1:
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt FirewallRouteFunction.Arn
+      FirewallArn: !GetAtt InspectionNetworkFirewall.FirewallArn
+      SubnetAz: !GetAtt InspectionFirewallSubneta.AvailabilityZone
+      DestinationCidr: "0.0.0.0/0"
+      RouteTableId: !Ref InspectionCWANRouteTablea
+
+  RouteInspectionCWANToFirewall2:
+    Type: Custom::RouteTableEntry
+    DependsOn:
+      - FunctionLogGroup
+    Properties:
+      ServiceToken: !GetAtt FirewallRouteFunction.Arn
+      FirewallArn: !GetAtt InspectionNetworkFirewall.FirewallArn
+      SubnetAz: !GetAtt InspectionFirewallSubnetb.AvailabilityZone
+      DestinationCidr: "0.0.0.0/0"
+      RouteTableId: !Ref InspectionCWANRouteTableb
+
+  # ---------- CLOUD WAN ATTACHMENT ----------
+  # Egress VPC
+  EgressInspectionCWANAttachment:
+    Condition: DeployLab1
+    Type: AWS::NetworkManager::VpcAttachment
+    Properties:
+      CoreNetworkId: !Ref CoreNetworkId
+      SubnetArns:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: EgressInspectionCWANSubneta
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: EgressInspectionCWANSubnetb
+      Tags:
+        - Key: nfg
+          Value: egressinspection
+      VpcArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":ec2:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":vpc/"
+            - Ref: EgressInspectionVPC
+  
+  # For::Each iteration: per Availability Zone
+  # 0.0.0.0/0 route from Private subnets to CWAN
+  'Fn::ForEach::EgressInspectionVPCCWANRoutes':
+    - AvailabilityZone
+    - [a, b]
+    - 'EgressInspectionToCWAN${AvailabilityZone}':
+        DependsOn: 
+          - EgressInspectionCWANAttachment
+        Type: AWS::EC2::Route
+        Condition: DeployLab1
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'EgressInspectionFirewallRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '10.0.0.0/8'
+          CoreNetworkArn: !Ref CoreNetworkArn
+  
+  # Inspection VPC
+  InspectionCWANAttachment:
+    Condition: DeployLab1
+    Type: AWS::NetworkManager::VpcAttachment
+    Properties:
+      CoreNetworkId: !Ref CoreNetworkId
+      SubnetArns:
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: InspectionCWANSubneta
+        - Fn::Join:
+            - ""
+            - - "arn:aws:ec2:"
+              - Ref: AWS::Region
+              - ":"
+              - Ref: AWS::AccountId
+              - ":subnet/"
+              - Ref: InspectionCWANSubnetb
+      Tags:
+        - Key: nfg
+          Value: inspection
+      VpcArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":ec2:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":vpc/"
+            - Ref: InspectionVPC
+  
+  # For::Each iteration: per Availability Zone
+  # 0.0.0.0/0 route from Private subnets to CWAN
+  'Fn::ForEach::InspectionVPCCWANRoutes':
+    - AvailabilityZone
+    - [a, b]
+    - 'InspectionToCWAN${AvailabilityZone}':
+        DependsOn: 
+          - InspectionCWANAttachment
+        Type: AWS::EC2::Route
+        Condition: DeployLab1
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'InspectionFirewallRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '0.0.0.0/0'
+          CoreNetworkArn: !Ref CoreNetworkArn

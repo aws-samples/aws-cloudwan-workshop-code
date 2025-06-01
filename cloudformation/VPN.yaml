@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Legacy infrastructure
+
+Parameters:
+  CoreNetworkId:
+    Type: String
+    Default: ""
+  CoreNetworkArn:
+    Type: String
+    Default: ""
+  CgwPublicIp:
+    Type: String
+    Description: EC2 Instance (CGW) Public IP Address
+
+Resources:
+  CustomerGateway:
+    Type: AWS::EC2::CustomerGateway
+    Properties:
+      BgpAsn: 64512
+      DeviceName: cgw-cwan-workshop
+      IpAddress: !Ref CgwPublicIp
+      Type: "ipsec.1"
+  
+  VPNConnection:
+    Type: AWS::EC2::VPNConnection
+    Properties:
+      CustomerGatewayId: !Ref CustomerGateway
+      Type: "ipsec.1"
+  
+  VPNAttachment:
+    Type: AWS::NetworkManager::SiteToSiteVpnAttachment
+    Properties:
+      CoreNetworkId: !Ref CoreNetworkId
+      VpnConnectionArn: !Join
+        - ""
+        - - "arn:aws:ec2:"
+          - Ref: AWS::Region
+          - ":"
+          - Ref: AWS::AccountId
+          - ":vpn-connection/"
+          - Ref: VPNConnection
+      Tags: 
+        - Key: domain
+          Value: onpremises

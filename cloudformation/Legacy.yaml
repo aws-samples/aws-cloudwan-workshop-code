@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
-
 Description: Legacy infrastructure
+Transform: "AWS::LanguageExtensions"
 
 Parameters:
   LatestAmiId:
@@ -9,501 +9,250 @@ Parameters:
   CoreNetworkId:
     Type: String
     Default: ""
-  CreateCWANPeering:
+  Deployment:
     Type: String
-    Description: Create the Cloud WAN peering to TGW
-    Default: 'false'
-    AllowedValues: [true, false]
-  CreateCWANAttachment:
-    Type: String
-    Description: Create the TGW Route Table attachment
-    Default: 'false'
-    AllowedValues: [true, false]
-  CreateVPCRoutes:
-    Type: String
-    Description: Create the VPC routes to Transit Gateway
-    Default: 'false'
-    AllowedValues: [true, false]
+    Description: Workshop deployment phase
+    Default: "initial"
+    AllowedValues: ["initial", "lab1", "lab2"]
 
 Conditions:
-  CreatePeering: !And
-    - !Equals [!Ref CreateCWANPeering, 'true']
-    - !Not [!Equals [!Ref CoreNetworkId, ""]]
-  CreateAttachment: !And
-    - !Equals [!Ref CreateCWANPeering, 'true']
-    - !Equals [!Ref CreateCWANAttachment, 'true']
-    - !Not [!Equals [!Ref CoreNetworkId, ""]]
-  CreateRoutes: !Equals [!Ref CreateVPCRoutes, 'true']
+  DeployLab2: !Equals [!Ref Deployment, "lab2"]
 
 Mappings:
-  RegionMap:
-    us-west-2:
-      legacy: 10.2.0.0/16
-      tgwasn: 64515
+  LegacyVpcCIDR:
     eu-north-1:
-      legacy: 10.12.0.0/16
-      tgwasn: 64516
+      CIDR: 10.2.0.0/16
+      EndpointSubneta: 10.2.2.0/28
+      EndpointSubnetb: 10.2.2.16/28
+      PrivateSubneta: 10.2.0.0/24
+      PrivateSubnetb: 10.2.1.0/24
+      TGWSubneta: 10.2.2.32/28
+      TGWSubnetb: 10.2.2.48/28
+    us-west-2:
+      CIDR: 10.12.0.0/16
+      EndpointSubneta: 10.12.2.0/28
+      EndpointSubnetb: 10.12.2.16/28
+      PrivateSubneta: 10.12.0.0/24
+      PrivateSubnetb: 10.12.1.0/24
+      TGWSubneta: 10.12.2.32/28
+      TGWSubnetb: 10.12.2.48/28
+  TransitGateway:
+    eu-north-1:
+      ASN: 65526
+    us-west-2:
+      ASN: 65527
 
 Resources:
-# ---------- LEGACY VPC ----------
-  # VPC resource
-  VPCLegacy:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W60
-            reason: VPC Flow Logs not required for workshop
+  # ---------- LEGACY VPC ----------
+  # VPC
+  LegacyVPC:
     Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: !FindInMap
-        - RegionMap
-        - !Ref "AWS::Region"
-        - legacy
-      EnableDnsSupport: true
-      EnableDnsHostnames: true
-      Tags:
+    Properties: 
+      CidrBlock: !FindInMap [LegacyVpcCIDR, !Ref 'AWS::Region', CIDR]
+      Tags: 
         - Key: Name
           Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "vpc"
-
- # Subnets 
-  VPCLegacySubnetWorkload1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [0, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "workload-subnet-1"
-  
-  VPCLegacySubnetWorkload2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [1, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "workload-subnet-2"
-
-  VPCLegacySubnetEndpoints1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [2, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "endpoints-subnet-1"
-
-  VPCLegacySubnetEndpoints2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [3, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "endpoints-subnet-2"
-
-  VPCLegacySubnetTGW1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [4, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 0
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "tgw-subnet-1"
-
-  VPCLegacySubnetTGW2:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPCLegacy
-      CidrBlock: !Select [5, !Cidr [!GetAtt VPCLegacy.CidrBlock, 6, 8]]
-      AvailabilityZone: !Select
-        - 1
-        - !GetAZs 
-          Ref: "AWS::Region"
-      MapPublicIpOnLaunch: false
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "tgw-subnet-2"
-
-  # Route Tables
-  VPCLegacyRouteTableWorkload1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "workload-rt-1"
-  
-  VPCLegacyWorkloadSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableWorkload1
-      SubnetId: !Ref VPCLegacySubnetWorkload1
-
-  VPCLegacyRouteTableWorkload2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "workload-rt-2"
-  
-  VPCLegacyWorkloadSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableWorkload2
-      SubnetId: !Ref VPCLegacySubnetWorkload2
-
-  VPCLegacyRouteTableEndpoints1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "endpoints-rt-1"
-  
-  VPCLegacyEndpointsSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableEndpoints1
-      SubnetId: !Ref VPCLegacySubnetEndpoints1
-
-  VPCLegacyRouteTableEndpoints2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "endpoints-rt-2"
-  
-  VPCLegacyEndpointsSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableEndpoints2
-      SubnetId: !Ref VPCLegacySubnetEndpoints2
-
-  VPCLegacyRouteTableTGW1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "tgw-rt-1"
-  
-  VPCLegacyTGWSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableTGW1
-      SubnetId: !Ref VPCLegacySubnetTGW1
-
-  VPCLegacyRouteTableTGW2:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPCLegacy
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "legacy"
-              - !Ref AWS::Region
-              - "tgw-rt-2"
-  
-  VPCLegacyTGWSubnet2RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref VPCLegacyRouteTableTGW2
-      SubnetId: !Ref VPCLegacySubnetTGW2
-
-  # Transit Gateway Attachment
-  VPCLegacyTGWAttachment:
-    Type: AWS::EC2::TransitGatewayAttachment
-    Properties:
-      TransitGatewayId: !Ref TransitGateway
-      VpcId: !Ref VPCLegacy
-      SubnetIds:
-        - !Ref VPCLegacySubnetTGW1
-        - !Ref VPCLegacySubnetTGW2
-      Tags:
-        - Key: Name
-          Value: !Join
-            - "-"
-            - - "tgw"
-              - "attachment"
+            - '-'
+            - - legacy-vpc
+              - !Ref AWS::StackName
               - !Ref AWS::Region
 
-  # Route from the Workload subnets to the TGW Attachment
-  VPCLegacyRouteWorkloadSubnet1:
-    Condition: CreateRoutes
-    Type: AWS::EC2::Route
-    DependsOn: VPCLegacyTGWAttachment
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref VPCLegacyRouteTableWorkload1
-      TransitGatewayId: !Ref TransitGateway
+  # For::Each iteration: per subnet type (Endpoint, Private, TGW) and AZ (2 AZs)
+  # Resources to create: 6 subnets, 6 route tables, 6 route table associations - obtaining AZ affinity
+  'Fn::ForEach::LegacySubnetTypes':
+    - SubnetType
+    - [Endpoint, Private, TGW]
+    - '${SubnetType}':
+      'Fn::ForEach::AZ':
+        - AvailabilityZone
+        - [a, b]
+        - 'Legacy${SubnetType}Subnet${AvailabilityZone}':
+            Type: AWS::EC2::Subnet
+            Properties:
+              VpcId: !Ref LegacyVPC
+              AvailabilityZone: !Sub ${AWS::Region}${AvailabilityZone}
+              CidrBlock: !FindInMap [LegacyVpcCIDR, !Ref 'AWS::Region', 'Fn::Sub': '${SubnetType}Subnet${AvailabilityZone}']
+              Tags:
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub legacy-subnet-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+          'Legacy${SubnetType}RouteTable${AvailabilityZone}':
+            Type: AWS::EC2::RouteTable
+            Properties:
+              VpcId: !Ref LegacyVPC
+              Tags: 
+                - Key: Name
+                  Value: !Join
+                    - '-'
+                    - - !Sub legacy-rt-${SubnetType}-AZ${AvailabilityZone}
+                      - !Ref AWS::StackName
+          'Legacy${SubnetType}RouteTableAssociation${AvailabilityZone}':
+            Type: AWS::EC2::SubnetRouteTableAssociation
+            Properties: 
+              RouteTableId: !Ref
+                'Fn::Sub': 'Legacy${SubnetType}RouteTable${AvailabilityZone}'
+              SubnetId: !Ref
+                'Fn::Sub': 'Legacy${SubnetType}Subnet${AvailabilityZone}'
 
-  VPCLegacyRouteWorkloadSubnet2:
-    Condition: CreateRoutes
-    Type: AWS::EC2::Route
-    DependsOn: VPCLegacyTGWAttachment
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      RouteTableId: !Ref VPCLegacyRouteTableWorkload2
-      TransitGatewayId: !Ref TransitGateway
-
-  # Security Groups (Instance and VPC endpoint)
+  # Security Groups (Instances and EC2 Instance Connect endpoint)
   VPCLegacyInstanceSecurityGroup:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W9
-            reason: CIDR is constrained to CloudWAN demo range
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Legacy VPC - Instance Security Group
-      VpcId: !Ref VPCLegacy
-      SecurityGroupIngress:
-        - Description: Allowing ICMP traffic
-          IpProtocol: icmp
-          FromPort: "-1"
-          ToPort: "-1"
-          CidrIp: 10.0.0.0/8
+      VpcId: !Ref LegacyVPC
   
-  VPCLegacyEndpointsSecurityGroup:
-    Metadata:
-      cfn_nag:
-        rules_to_suppress:
-          - id: W9
-            reason: CIDR is constrained to CloudWAN demo range
+  VPCLegacyInstanceSecurityGroupIngressICMP:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref VPCLegacyInstanceSecurityGroup
+      Description: Allowing ICMP traffic
+      IpProtocol: icmp
+      FromPort: -1
+      ToPort: -1
+      CidrIp: 10.0.0.0/8
+  
+  VPCLegacyInstanceSecurityGroupIngressEIC:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref VPCLegacyInstanceSecurityGroup
+      Description: Allowing EIC connection
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      SourceSecurityGroupId: !Ref VPCLegacyEndpointSecurityGroup
+  
+  VPCLegacyInstanceSecurityGroupEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref VPCLegacyInstanceSecurityGroup
+      Description: Allowing egress traffic
+      IpProtocol: -1
+      CidrIp: 0.0.0.0/0
+
+  VPCLegacyEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Non-Production VPC - VPC Endpoints Security Group
-      VpcId: !Ref VPCLegacy
-      SecurityGroupIngress:
-        - Description: Allowing HTTPS
-          IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          SourceSecurityGroupId: !Ref VPCLegacyInstanceSecurityGroup
+       
+      GroupDescription: Legacy VPC - Endpoints Security Group
+      VpcId: !Ref LegacyVPC
   
-  # EC2 Instances
-  EC2InstanceLegacyWorkload1:
+  VPCLegacyEndpointSecurityGroupEgressEIC:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref VPCLegacyEndpointSecurityGroup
+      Description: Allowing EIC connection
+      IpProtocol: tcp
+      FromPort: 22
+      ToPort: 22
+      DestinationSecurityGroupId: !Ref VPCLegacyInstanceSecurityGroup
+  
+  # EC2 Instance
+  LegacyInstance:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: t3.micro
       SecurityGroupIds:
-        - Ref: VPCLegacyInstanceSecurityGroup
-      SubnetId:
-        Ref: VPCLegacySubnetWorkload1
+        - !Ref VPCLegacyInstanceSecurityGroup
+      SubnetId: !Ref LegacyPrivateSubneta
       ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref EC2SSMInstanceProfileLegacy
       Tags:
         - Key: Name
-          Value: "Legacy-Instance-1"
+          Value: !Join
+            - '-'
+            - - !Sub legacy-instance
+              - !Ref AWS::StackName
   
-  EC2InstanceLegacyWorkload2:
-    Type: AWS::EC2::Instance
+  # EC2 Instance Connect Endpoint
+  LegacyEICEndpoint:
+    Type: AWS::EC2::InstanceConnectEndpoint
     Properties:
-      InstanceType: t3.micro
-      SecurityGroupIds:
-        - Ref: VPCLegacyInstanceSecurityGroup
-      SubnetId:
-        Ref: VPCLegacySubnetWorkload2
-      ImageId: !Ref LatestAmiId
-      IamInstanceProfile: !Ref EC2SSMInstanceProfileLegacy
-      Tags:
+      PreserveClientIp: false
+      SecurityGroupIds: 
+        - !Ref VPCLegacyEndpointSecurityGroup
+      SubnetId: !Ref LegacyEndpointSubneta
+      Tags: 
         - Key: Name
-          Value: "Legacy-Instance-2"
+          Value : !Join
+            - '-'
+            - - !Sub legacy-eic
+              - !Ref AWS::StackName
   
-  # SSM Endpoints
-  SSMLegacyVPCEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
-      VpcId: !Ref VPCLegacy
-      SubnetIds:
-        - !Ref VPCLegacySubnetEndpoints1
-        - !Ref VPCLegacySubnetEndpoints2
-      SecurityGroupIds:
-        - !Ref VPCLegacyEndpointsSecurityGroup
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  SSMMessagesLegacyVPCEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
-      VpcId: !Ref VPCLegacy
-      SubnetIds:
-        - !Ref VPCLegacySubnetEndpoints1
-        - !Ref VPCLegacySubnetEndpoints2
-      SecurityGroupIds:
-        - !Ref VPCLegacyEndpointsSecurityGroup
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-  EC2MessagesLegacyVPCEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
-      VpcId: !Ref VPCLegacy
-      SubnetIds:
-        - !Ref VPCLegacySubnetEndpoints1
-        - !Ref VPCLegacySubnetEndpoints2
-      SecurityGroupIds:
-        - !Ref VPCLegacyEndpointsSecurityGroup
-      VpcEndpointType: Interface
-      PrivateDnsEnabled: True
-
-# ---------- TRANSIT GATEWAY ----------
-  # Resource
+  # AWS Transit Gateway
   TransitGateway:
     Type: AWS::EC2::TransitGateway
-    Properties: 
-      AmazonSideAsn: !FindInMap
-        - RegionMap
-        - !Ref "AWS::Region"
-        - tgwasn
+    Properties:
+      Description: Legacy Infra - Transit Gateway
+      AmazonSideAsn: !FindInMap [TransitGateway, !Ref 'AWS::Region', ASN]
       DefaultRouteTableAssociation: disable
       DefaultRouteTablePropagation: disable
-      Description: !Join
-        - "-"
-        - - "Transit Gateway"
-          - !Ref AWS::Region
       Tags: 
         - Key: Name
           Value: !Join
-            - "-"
-            - - "tgw"
+            - '-'
+            - - !Sub legacy-tgw
               - !Ref AWS::Region
-
-  # Route Table
+  
+  # AWS Transit Gateway Attachment
+  TransitGatewayAttachment:
+    Type: AWS::EC2::TransitGatewayAttachment
+    Properties:
+      TransitGatewayId: !Ref TransitGateway
+      VpcId: !Ref LegacyVPC
+      SubnetIds: 
+        - !Ref LegacyTGWSubneta
+        - !Ref LegacyTGWSubnetb
+      Tags: 
+        - Key: Name
+          Value: !Join
+            - '-'
+            - - !Sub legacy-tgw-attachment
+              - !Ref AWS::Region
+  
+  # AWS Transit Gateway Route Table, Association, and Propagation
   TransitGatewayRouteTable:
     Type: AWS::EC2::TransitGatewayRouteTable
-    Properties: 
+    Properties:
       TransitGatewayId: !Ref TransitGateway
       Tags: 
         - Key: Name
           Value: !Join
-            - "-"
-            - - "tgw"
-              - "rt"
+            - '-'
+            - - !Sub legacy-tgw-rt
               - !Ref AWS::Region
-
-  # Propagation and Association
-  TransitGatewayRouteTableAssociation:
+  
+  TransitGatewayAssociation:
     Type: AWS::EC2::TransitGatewayRouteTableAssociation
-    Properties: 
-      TransitGatewayAttachmentId: !Ref VPCLegacyTGWAttachment
+    Properties:
+      TransitGatewayAttachmentId: !Ref TransitGatewayAttachment
       TransitGatewayRouteTableId: !Ref TransitGatewayRouteTable
   
-  TransitGatewayRouteTablePropagation:
+  TransitGatewayPropagation:
     Type: AWS::EC2::TransitGatewayRouteTablePropagation
-    Properties: 
-      TransitGatewayAttachmentId: !Ref VPCLegacyTGWAttachment
+    Properties:
+      TransitGatewayAttachmentId: !Ref TransitGatewayAttachment
       TransitGatewayRouteTableId: !Ref TransitGatewayRouteTable
 
-# ---------- IAM ROLE (EC2 INSTANCE) ----------
-  # EC2 Instance Role (SSM access)
-  EC2SSMIAMRoleLegacy:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service:
-                - ec2.amazonaws.com
-            Action:
-              - sts:AssumeRole
-      ManagedPolicyArns:
-        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Path: /
+  # For::Each iteration: per Availability Zone
+  # 0.0.0.0/0 route from Private subnets to TGW
+  'Fn::ForEach::TGWLegacyVPCRoutes':
+    - AvailabilityZone
+    - [a, b]
+    - 'PrivateToTGW${AvailabilityZone}':
+        DependsOn: 
+          - TransitGatewayAttachment
+        Type: AWS::EC2::Route
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'LegacyPrivateRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '0.0.0.0/0'
+          TransitGatewayId: !Ref TransitGateway
 
-  EC2SSMInstanceProfileLegacy:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Path: /
-      Roles:
-        - !Ref EC2SSMIAMRoleLegacy
-
-# ---------- TRANSIT GATEWAY - CLOUD WAN PEERING ----------
+  # ---------- TRANSIT GATEWAY - CLOUD WAN PEERING ----------
   # Cloud WAN - Transit Gateway peering
   TGWCWANPeering:
-    Condition: CreatePeering
+    Condition: DeployLab2
     Type: AWS::NetworkManager::TransitGatewayPeering
     Properties:
       CoreNetworkId: !Ref CoreNetworkId
@@ -525,7 +274,7 @@ Resources:
  
   # TGW Policy Table and peering association (Custom Resource)
   TGWPolicyTable:
-    Condition: CreatePeering
+    Condition: DeployLab2
     Type: Custom::TGWPolicyTable
     DependsOn:
       - TGWCWANPeering
@@ -536,7 +285,7 @@ Resources:
 
   # Transit Gateway Route Table Attachment
   TGWRouteTableAttachment:
-    Condition: CreateAttachment
+    Condition: DeployLab2
     Type: AWS::NetworkManager::TransitGatewayRouteTableAttachment
     DependsOn:
       - TGWPolicyTable
@@ -551,12 +300,9 @@ Resources:
             - "/"
             - - "transit-gateway-route-table"
               - !Ref TransitGatewayRouteTable
-      Tags:
-        - Key: legacy
-          Value: "true"
 
   CustomResourcesRole:
-    Condition: CreatePeering
+    Condition: DeployLab2
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -590,7 +336,7 @@ Resources:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   TGWPolicyTableFunctionLogGroup:
-    Condition: CreatePeering
+    Condition: DeployLab2
     Metadata:
       cfn_nag:
         rules_to_suppress:
@@ -602,7 +348,7 @@ Resources:
       RetentionInDays: 7
 
   TGWPolicyTableFunction:
-    Condition: CreatePeering
+    Condition: DeployLab2
     Metadata:
       cfn_nag:
         rules_to_suppress:

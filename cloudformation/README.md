@@ -10,50 +10,36 @@ This repository shows you an example in AWS CloudFormation of global communicati
 
 ## Deployment instructions
 
-This sample project is meant to be deployed to a single account and multiple regions. By default, AWS regions **us-west-1** and **eu-north-1** are in use.
-
-* `make deploy` will deploy all four stacks (core network, workloads, inspection, and legacy). However, the static routes in the Core Network policy will require for you to make to different deployments.
-  * First, in *CoreNetwork.yaml* **uncomment lines 55 - 93, and 108 - 113** and use `make deploy`. This will deploy all the resources except the static routes pointing to the Inspection VPC attachments.
-  * After this, **uncomment lines 94 - 107** and use `make update-cloudwan`. This will finish the deployment.
-* `make undeploy` will delete all four stacks
+* Clone the repository
+* If you want to follow the [workshop instructions](https://catalog.workshops.aws/cloudwan/en-US), move to the [Following the lab instructions](#following-the-lab-instructions) section.
+* If you want to test out the code outside the lab instructions, check carefully each stack and the resources it deploys:
+  * `Workloads.yaml` creates the spoke VPCs.
+  * `Inspection.yaml` creates both Inspection VPCs (egress and east-west).
+  * `Legacy.yaml` creates the legacy infrastructure with Transit Gateway.
+  * `OnPremises.yaml` creates the *mock on-premises* in eu-west-2 (London).
+  * `VPN.yaml` creates the VPN connection resources.
 
 ## Following the lab instructions
 
-* To follow the workshop, you can either use the AWS Management console as indicated in the workshop instructions, or follow the instructions below to deploy the resources in the same order.
-* To build the inital architecture before starting the lab instructions, use `make deploy-initial`.
+**NOTE**: The final state of both workshop labs is codified in this repository. However, some pieces are commented or only deployed if specific parameters are configured. Check below to understand how to deploy the environment for each different state.
 
 ### Lab 1 - Build a global, segmented network with central egress
 
-* Step 1 - *Create/Review JSON for Core Network Policy*. Nothing to do here, everything is built with the first deployment.
-* Step 2 - *Update Core Network Policy*. This section updates the Core Network policy with the *attachment_policies*. In *CoreNetwork.yaml* **uncomment lines 60-81**, and use `make deploy-cloudwan` to update the Core Network policy.
-* Step 3 - *Create attachments*. This section attaches the Spoke and Inspection VPCs to the Core Network. Use `make deploy-vpc-attachments` to create the Cloud WAN VPC attachments.
-* Step 4 - *Update Core Network Policy for routing*. Now we are adding more information to the Core Network policy, related to the routing from the Spoke VPCs to the Inspection VPCs. Use `make update-cloudwan` to update the Core Network policy.
-  * In *CoreNetwork.yaml*, **uncomment lines 89 to 107**.
-  * Note that the Attachment IDs of the Inspection VPCs (both Regions) are retrieved and passed to the CloudFormation parameters information in the *Makefile* definition.
-* Step 5 - *Update VPC Route tables*. Configuring the VPC routes to point to the Core Network attachment (in all VPCs in both Regions). Use `make deploy-vpc-routes` to create the VPC routes.
-* Step 6 - *Perform tests to validate configuration*. Nothing to do here, follow the lab instructions.
+1. If you want to follow the lab guide:
+  * `make deploy-initial` to build the initial environment.
+2. If you want to build the end architecture after finishing the steps:
+  * Uncomment lines 54-80 and 90-114 in `CoreNetwork.yaml`.
+  * Execute `make deploy-lab1`.
+
+Use `make undeploy` to clean-up the test environment and avoid undesired charges.
 
 ### Lab 2 - Federate with AWS Transit Gateway
 
-* Step 1 - *Core Policy Updates*. We need to update the Core Network policy to include the "legacy" infrastructure (TGW and Legacy VPC). In *CoreNetwork,yaml*, **uncomment lines 55 - 59, 82 - 88, and 108 - 113**. Use `make deploy-cloudwan`
-* Step 2 - *TGW Peering*. Create TGW peering to Cloud WAN in both Regions. Use `make deploy-peering` to deploy the peerings.
-* Step 3 - *TGW Attachments*. Create the TGW route table attachments in Cloud WAN (in both Regions). Use `make deploy-tgwrt-attachments` to deploy the Cloud WAN attachments.
-* Step 4 - *Update VPC and TGW Route Tables*. In this section, we have to create the VPC routing in the Legacy VPCs to communicate to the Transit Gateway. Use `make deploy-legacy-routes` to create the VPC routes.
-* Step 5 - *Validation*. Nothing to do here, follow the lab instructions.
+1. If you want to follow the lab guide:
+  * Check point 2 above to uncomment the corresponding lines and do `make deploy-lab1` to build the initial environment.
+  * Follow [Step 6](https://catalog.workshops.aws/cloudwan/en-US/3-labs/lab1/step-6) in the workshop guide to configure the VPN connection.
+2. If you want to build the end architecture after finishing the steps:
+  * Uncomment everything in `CoreNetwork.yaml`.
+  * Execute `make deploy-lab2`.
 
-**NOTE**: Remember to do `make undeploy` when you are done with the lab and your tests, to avoid undesired charges.
-
-## References
-
-* [AWS Cloud WAN documentation](https://docs.aws.amazon.com/vpc/latest/cloudwan/what-is-cloudwan.html).
-* [AWS Cloud WAN Workshop](https://catalog.workshops.aws/cloudwan/en-US).
-* Blog post: [Introducing AWS Cloud WAN (Preview)](https://aws.amazon.com/blogs/networking-and-content-delivery/introducing-aws-cloud-wan-preview/).
-* Blog post: [AWS Cloud WAN and AWS Transit Gateway migration and interoperability patterns](https://aws.amazon.com/blogs/networking-and-content-delivery/aws-cloud-wan-and-aws-transit-gateway-migration-and-interoperability-patterns/)
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.
+Use `make undeploy` to clean-up the test environment and avoid undesired charges.

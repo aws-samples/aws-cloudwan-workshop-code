@@ -8,7 +8,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 4.9.0"
+      version = ">= 5.0.0"
     }
   }
 }
@@ -30,6 +30,19 @@ provider "aws" {
 provider "aws" {
   region = var.aws_regions.stockholm
   alias  = "awsstockholm"
+
+  default_tags {
+    tags = {
+      Project   = "Cloud WAN Workshop"
+      Terraform = "Managed"
+    }
+  }
+}
+
+# Provider definition for London Region
+provider "aws" {
+  region = var.aws_regions.london
+  alias  = "awslondon"
 
   default_tags {
     tags = {

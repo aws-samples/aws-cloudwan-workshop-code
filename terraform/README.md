@@ -17,8 +17,11 @@ This repository shows you an example in Terraform of global communication with A
 ## Deployment instructions
 
 * Clone the repository
-* Modify *variables.tf* and *locals.tf* in the project root directory if there are any changes needed to the VPCs/Subnets/Security Groups/VPC Endpoints related configuration. The defaults would create required VPCs and other resources in **us-west-2** and **eu-north-1** AWS Regions.
-* If you want to test out the code outside the lab instructions, you will find the Cloud WAN policy in the *cloudwan\\_policy.tf* file, the AWS Network Firewall policies in the *firewall\\_policies.tf* file, and the rest of resources related to the architecture in *main.tf*.
+* If you want to follow the [workshop instructions](https://catalog.workshops.aws/cloudwan/en-US), move to the [Following the lab instructions](#following-the-lab-instructions) section.
+* If you want to test out the code outside the lab instructions:
+  * Check the `variables.tf` file and change the values accordingly.
+  * The Cloud WAN policy can be found in the file `cloudwan_policy.tf`, and the AWS Network Firewall policies in the `firewall_policies.tf` file.
+  * Main resources can be found in the `main.tf` file, while the resources simulating the on-premises environments are in the `on_prem.tf` file.
 * Initialize Terraform using `terraform init`.
 
 ## Following the lab instructions
@@ -27,117 +30,115 @@ This repository shows you an example in Terraform of global communication with A
 
 ### Lab 1 - Build a global, segmented network with central egress
 
-* Step 1 - *Create/Review JSON for Core Network Policy*. Nothing to do here, everything is built with the first deployment.
-* Step 2 - *Update Core Network Policy*. This section updates the Core Network policy with the *attachment\\_policies*. In *cloudwan\\_policy.tf*, **uncomment lines 48 to 88**
-  * Understand how the [Core Network policy data source](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) works, as it is used to simplify the definition of the policy - rather than using a JSON file.
-* Step 3 - *Create attachments*. This section attaches the Spoke and Inspection VPCs to the Core Network.
-  * In *main.tf*, **uncomment lines 59 - 62, 70 - 76, 90 - 93, 107 - 115, 120 - 140, 167 - 170, 178 - 184, 198 - 201, 215 - 223, 228 - 248**.
-  * In *outputs.tf*, **uncomment 29, 30, 34 and 35**.
-  * The VPC resources are handled by the following [VPC module](https://registry.terraform.io/modules/aws-ia/vpc/aws/latest), and the AWS Network Firewall resource (and some routing in the Inspection VPCs) by the [AWS Network Firewall module](https://registry.terraform.io/modules/aws-ia/networkfirewall/aws/latest), both created and maintained by AWS. Take some time to check the module and understand how the different resources are defined.
-* Step 4 - *Update Core Network Policy for routing*. Now we are adding more information to the Core Network policy, related to the routing from the Spoke VPCs to the Inspection VPCs. In *cloudwan\\_policy.tf*, **uncomment lines 104 to 132**.
-* Step 5 - *Update VPC Route tables*. Configuring the VPC routes to point to the Core Network attachment. In *main.tf*, **uncomment lines 63 - 65, 94 - 96, 171 - 173, 202 - 204**.
-* Step 6 - *Perform tests to validate configuration*. Nothing to do here, follow the lab instructions.
+1. If you want to follow the lab guide:
+  * `terraform apply` to build the initial environment.
+2. If you want to build the end architecture after finishing the steps, uncomment the following lines and do `terraform apply`:
+  *
+
+Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
 
 ### Lab 2 - Federate with AWS Transit Gateway
 
-* Step 1 - *Core Policy Updates*. We need to update the Core Network policy to include the "legacy" infrastructure (TGW and Legacy VPC). In *cloudwan\\_policy.tf*, **uncomment lines 39 - 46, 90 - 102, and 134 - 142**.
-* Step 2 - *TGW Peering*. Create TGW peering to Cloud WAN in both Regions. The console creates in the same workflow the peering, TGW policy table, and associates the policy table to the peering; here we need to create all those resources. In *main.tf*, **uncomment lines 346 - 369, and 469 - 492**.
-* Step 3 - *TGW Attachments*. Create the TGW route table attachments in Cloud WAN (in both Regions).
-  * In *main.tf* file, **uncomment lines 372 - 386, and 495 - 509**.
-  * In *outputs.tf* file, **uncomment lines 31 and 36**.
-* Step 4 - *Update VPC and TGW Route Tables*. In this section, we have to create the VPC routing in the Legacy VPCs to communicate to the Transit Gateway. In *main.tf* file, **uncomment lines 277 - 279, and 400 - 402**.
-  * Take your time to understand how the [VPC module](https://registry.terraform.io/modules/aws-ia/vpc/aws/latest) works, and how it abstracts the creation of TGW and Cloud WAN attachments (and routing to them).
-* Step 5 - *Validation*. Nothing to do here, follow the lab instructions.
+1. If you want to follow the lab guide:
+  * Check point 2 above to uncomment the corresponding lines and do `terraform apply` to build the initial environment.
+2. If you want to build the end architecture after finishing the steps, uncomment the following lines and do `terraform apply`:
+  *
 
-**NOTE**: Remember to do `terraform destroy` when you are done with the lab and your tests, to avoid undesired charges.
-
-## References
-
-* [AWS Cloud WAN documentation](https://docs.aws.amazon.com/vpc/latest/cloudwan/what-is-cloudwan.html).
-* [AWS Cloud WAN Workshop](https://catalog.workshops.aws/cloudwan/en-US).
-* Blog post: [Introducing AWS Cloud WAN (Preview)](https://aws.amazon.com/blogs/networking-and-content-delivery/introducing-aws-cloud-wan-preview/).
-* Blog post: [AWS Cloud WAN and AWS Transit Gateway migration and interoperability patterns](https://aws.amazon.com/blogs/networking-and-content-delivery/aws-cloud-wan-and-aws-transit-gateway-migration-and-interoperability-patterns/)
-
-## Security
-
-See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
-
-## License
-
-This library is licensed under the MIT-0 License. See the LICENSE file.
+Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
 
 ## Requirements
 
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.3.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 4.9.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0.0 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 4.9.0 |
-| <a name="provider_aws.awsoregon"></a> [aws.awsoregon](#provider\_aws.awsoregon) | >= 4.9.0 |
-| <a name="provider_aws.awsstockholm"></a> [aws.awsstockholm](#provider\_aws.awsstockholm) | >= 4.9.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0.0 |
+| <a name="provider_aws.awslondon"></a> [aws.awslondon](#provider\_aws.awslondon) | >= 5.0.0 |
+| <a name="provider_aws.awsoregon"></a> [aws.awsoregon](#provider\_aws.awsoregon) | >= 5.0.0 |
+| <a name="provider_aws.awsstockholm"></a> [aws.awsstockholm](#provider\_aws.awsstockholm) | >= 5.0.0 |
 
 ## Modules
 
 | Name | Source | Version |
 |------|--------|---------|
+| <a name="module_cloud_wan"></a> [cloud\_wan](#module\_cloud\_wan) | aws-ia/cloudwan/aws | 3.3.0 |
+| <a name="module_on_prem_vpc"></a> [on\_prem\_vpc](#module\_on\_prem\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
 | <a name="module_oregon_compute"></a> [oregon\_compute](#module\_oregon\_compute) | ./modules/compute | n/a |
-| <a name="module_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#module\_oregon\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_oregon_egress_vpc"></a> [oregon\_egress\_vpc](#module\_oregon\_egress\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
+| <a name="module_oregon_firewall_policies"></a> [oregon\_firewall\_policies](#module\_oregon\_firewall\_policies) | ./modules/firewall_policy | n/a |
+| <a name="module_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#module\_oregon\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
 | <a name="module_oregon_legacy_compute"></a> [oregon\_legacy\_compute](#module\_oregon\_legacy\_compute) | ./modules/compute | n/a |
-| <a name="module_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#module\_oregon\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
-| <a name="module_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#module\_oregon\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#module\_oregon\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
+| <a name="module_oregon_network_firewall_egress"></a> [oregon\_network\_firewall\_egress](#module\_oregon\_network\_firewall\_egress) | aws-ia/networkfirewall/aws | 1.0.2 |
+| <a name="module_oregon_network_firewall_inspection"></a> [oregon\_network\_firewall\_inspection](#module\_oregon\_network\_firewall\_inspection) | aws-ia/networkfirewall/aws | 1.0.2 |
+| <a name="module_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#module\_oregon\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.4 |
 | <a name="module_stockholm_compute"></a> [stockholm\_compute](#module\_stockholm\_compute) | ./modules/compute | n/a |
-| <a name="module_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#module\_stockholm\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_stockholm_egress_vpc"></a> [stockholm\_egress\_vpc](#module\_stockholm\_egress\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
+| <a name="module_stockholm_firewall_policies"></a> [stockholm\_firewall\_policies](#module\_stockholm\_firewall\_policies) | ./modules/firewall_policy | n/a |
+| <a name="module_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#module\_stockholm\_inspection\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
 | <a name="module_stockholm_legacy_compute"></a> [stockholm\_legacy\_compute](#module\_stockholm\_legacy\_compute) | ./modules/compute | n/a |
-| <a name="module_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#module\_stockholm\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.2 |
-| <a name="module_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#module\_stockholm\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.2 |
+| <a name="module_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#module\_stockholm\_legacy\_vpc) | aws-ia/vpc/aws | = 4.4.4 |
+| <a name="module_stockholm_network_firewall_egress"></a> [stockholm\_network\_firewall\_egress](#module\_stockholm\_network\_firewall\_egress) | aws-ia/networkfirewall/aws | 1.0.2 |
+| <a name="module_stockholm_network_firewall_inspection"></a> [stockholm\_network\_firewall\_inspection](#module\_stockholm\_network\_firewall\_inspection) | aws-ia/networkfirewall/aws | 1.0.2 |
+| <a name="module_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#module\_stockholm\_spoke\_vpcs) | aws-ia/vpc/aws | = 4.4.4 |
 
 ## Resources
 
 | Name | Type |
 |------|------|
+| [aws_customer_gateway.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/customer_gateway) | resource |
 | [aws_ec2_transit_gateway.oregon_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
 | [aws_ec2_transit_gateway.stockholm_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
+| [aws_ec2_transit_gateway_policy_table.oregon_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
+| [aws_ec2_transit_gateway_policy_table.stockholm_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
+| [aws_ec2_transit_gateway_policy_table_association.oregon_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
+| [aws_ec2_transit_gateway_policy_table_association.stockholm_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
 | [aws_ec2_transit_gateway_route_table.oregon_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table.stockholm_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table_association.oregon_tgw_rt_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_association) | resource |
 | [aws_ec2_transit_gateway_route_table_association.stockholm_tgw_rt_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_association) | resource |
 | [aws_ec2_transit_gateway_route_table_propagation.oregon_tgw_rt_propagation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_propagation) | resource |
 | [aws_ec2_transit_gateway_route_table_propagation.stockholm_tgw_rt_propagation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_propagation) | resource |
-| [aws_networkfirewall_firewall_policy.oregon_fwpolicy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_firewall_policy) | resource |
-| [aws_networkfirewall_firewall_policy.stockholm_fwpolicy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_firewall_policy) | resource |
-| [aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_oregon](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
-| [aws_networkfirewall_rule_group.domain_allow_stateful_rule_group_stockholm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
-| [aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_oregon](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
-| [aws_networkfirewall_rule_group.icmp_alert_stateful_rule_group_stockholm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkfirewall_rule_group) | resource |
-| [aws_networkmanager_core_network.core_network](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_core_network) | resource |
-| [aws_networkmanager_core_network_policy_attachment.policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_core_network_policy_attachment) | resource |
-| [aws_networkmanager_global_network.global_network](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_global_network) | resource |
+| [aws_eip.cgw_eip](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip) | resource |
+| [aws_eip_association.cgw_eip_assoc](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/eip_association) | resource |
+| [aws_iam_instance_profile.instance_profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile) | resource |
+| [aws_iam_policy.describe_vpn_connections](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
+| [aws_iam_role.instance_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy_attachment.iam_role_policy_attachment_ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.vpn_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_instance.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_networkmanager_site_to_site_vpn_attachment.vpn_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_site_to_site_vpn_attachment) | resource |
+| [aws_networkmanager_transit_gateway_peering.cwan_oregon_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
+| [aws_networkmanager_transit_gateway_peering.cwan_stockholm_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
+| [aws_networkmanager_transit_gateway_route_table_attachment.oregon_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
+| [aws_networkmanager_transit_gateway_route_table_attachment.stockholm_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
+| [aws_security_group.cgw_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_vpn_connection.vpn](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpn_connection) | resource |
 | [aws_networkmanager_core_network_policy_document.core_nw_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) | data source |
+| [aws_ssm_parameter.ubuntu_ami](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssm_parameter) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_aws_regions"></a> [aws\_regions](#input\_aws\_regions) | AWS regions to spin up resources. | `map(string)` | <pre>{<br>  "oregon": "us-west-2",<br>  "stockholm": "eu-north-1"<br>}</pre> | no |
-| <a name="input_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#input\_oregon\_inspection\_vpc) | Information about the Inspection VPC to create in us-west-2. | `any` | <pre>{<br>  "cidr_block": "100.64.0.0/16",<br>  "cnetwork_subnet_cidrs": [<br>    "100.64.0.96/28",<br>    "100.64.0.112/28",<br>    "100.64.0.128/28"<br>  ],<br>  "inspection_subnet_cidrs": [<br>    "100.64.0.48/28",<br>    "100.64.0.64/28",<br>    "100.64.0.80/28"<br>  ],<br>  "name": "inspection-us-west-2",<br>  "number_azs": 2,<br>  "public_subnet_cidrs": [<br>    "100.64.0.0/28",<br>    "100.64.0.16/28",<br>    "100.64.0.32/28"<br>  ]<br>}</pre> | no |
-| <a name="input_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#input\_oregon\_legacy\_vpc) | Information about the Legacy VPC to create in us-west-2. | `any` | <pre>{<br>  "cidr_block": "10.2.0.0/16",<br>  "endpoint_subnet_cidrs": [<br>    "10.2.3.0/28",<br>    "10.2.3.16/28",<br>    "10.2.3.32/28"<br>  ],<br>  "instance_type": "t3.micro",<br>  "name": "legacy-us-west-2",<br>  "number_azs": 2,<br>  "tgw_subnet_cidrs": [<br>    "10.2.3.48/28",<br>    "10.2.3.64/28",<br>    "10.2.3.80/28"<br>  ],<br>  "workload_subnet_cidrs": [<br>    "10.2.0.0/24",<br>    "10.2.1.0/24",<br>    "10.2.2.0/24"<br>  ]<br>}</pre> | no |
-| <a name="input_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#input\_oregon\_spoke\_vpcs) | Information about the VPCs to create in us-west-2. | `any` | <pre>{<br>  "non-prod": {<br>    "cidr_block": "10.1.0.0/16",<br>    "cnetwork_subnet_cidrs": [<br>      "10.1.3.48/28",<br>      "10.1.3.64/28",<br>      "10.1.3.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.1.3.0/28",<br>      "10.1.3.16/28",<br>      "10.1.3.32/28"<br>    ],<br>    "instance_type": "t3.micro",<br>    "name": "non-prod-us-west-2",<br>    "number_azs": 2,<br>    "type": "nonprod",<br>    "workload_subnet_cidrs": [<br>      "10.1.0.0/24",<br>      "10.1.1.0/24",<br>      "10.1.2.0/24"<br>    ]<br>  },<br>  "prod": {<br>    "cidr_block": "10.0.0.0/16",<br>    "cnetwork_subnet_cidrs": [<br>      "10.0.3.48/28",<br>      "10.0.3.64/28",<br>      "10.0.3.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.0.3.0/28",<br>      "10.0.3.16/28",<br>      "10.0.3.32/28"<br>    ],<br>    "instance_type": "t3.micro",<br>    "name": "prod-us-west-2",<br>    "number_azs": 2,<br>    "type": "prod",<br>    "workload_subnet_cidrs": [<br>      "10.0.0.0/24",<br>      "10.0.1.0/24",<br>      "10.0.2.0/24"<br>    ]<br>  }<br>}</pre> | no |
+| <a name="input_aws_regions"></a> [aws\_regions](#input\_aws\_regions) | AWS regions to spin up resources. | `map(string)` | <pre>{<br/>  "london": "eu-west-2",<br/>  "oregon": "us-west-2",<br/>  "stockholm": "eu-north-1"<br/>}</pre> | no |
+| <a name="input_oregon_egress_vpc"></a> [oregon\_egress\_vpc](#input\_oregon\_egress\_vpc) | Information about the Egress VPC to create in us-west-2. | `any` | <pre>{<br/>  "cidr_block": "100.64.0.0/16",<br/>  "cnetwork_subnet_cidrs": [<br/>    "100.64.0.64/28",<br/>    "100.64.0.80/28"<br/>  ],<br/>  "inspection_subnet_cidrs": [<br/>    "100.64.0.32/28",<br/>    "100.64.0.48/28"<br/>  ],<br/>  "name": "egress-us-west-2",<br/>  "number_azs": 2,<br/>  "public_subnet_cidrs": [<br/>    "100.64.0.0/28",<br/>    "100.64.0.16/28"<br/>  ]<br/>}</pre> | no |
+| <a name="input_oregon_inspection_vpc"></a> [oregon\_inspection\_vpc](#input\_oregon\_inspection\_vpc) | Information about the Inspection VPC to create in us-west-2. | `any` | <pre>{<br/>  "cidr_block": "100.64.0.0/16",<br/>  "cnetwork_subnet_cidrs": [<br/>    "100.64.0.32/28",<br/>    "100.64.0.48/28"<br/>  ],<br/>  "inspection_subnet_cidrs": [<br/>    "100.64.0.0/28",<br/>    "100.64.0.16/28"<br/>  ],<br/>  "name": "inspection-us-west-2",<br/>  "number_azs": 2<br/>}</pre> | no |
+| <a name="input_oregon_legacy_vpc"></a> [oregon\_legacy\_vpc](#input\_oregon\_legacy\_vpc) | Information about the Legacy VPC to create in us-west-2. | `any` | <pre>{<br/>  "cidr_block": "10.12.0.0/16",<br/>  "endpoint_subnet_cidrs": [<br/>    "10.12.2.0/28",<br/>    "10.12.3.16/28"<br/>  ],<br/>  "instance_type": "t3.micro",<br/>  "name": "legacy-us-west-2",<br/>  "number_azs": 2,<br/>  "tgw_subnet_cidrs": [<br/>    "10.12.3.32/28",<br/>    "10.12.3.48/28"<br/>  ],<br/>  "workload_subnet_cidrs": [<br/>    "10.12.0.0/24",<br/>    "10.12.1.0/24"<br/>  ]<br/>}</pre> | no |
+| <a name="input_oregon_spoke_vpcs"></a> [oregon\_spoke\_vpcs](#input\_oregon\_spoke\_vpcs) | Information about the VPCs to create in us-west-2. | `any` | <pre>{<br/>  "prod": {<br/>    "cidr_block": "10.10.0.0/16",<br/>    "cnetwork_subnet_cidrs": [<br/>      "10.10.2.32/28",<br/>      "10.10.2.48/28"<br/>    ],<br/>    "endpoint_subnet_cidrs": [<br/>      "10.10.2.0/28",<br/>      "10.10.2.16/28"<br/>    ],<br/>    "instance_type": "t3.micro",<br/>    "name": "prod-us-west-2",<br/>    "number_azs": 2,<br/>    "type": "prod",<br/>    "workload_subnet_cidrs": [<br/>      "10.10.0.0/24",<br/>      "10.10.1.0/24"<br/>    ]<br/>  },<br/>  "thirdparty": {<br/>    "cidr_block": "10.11.0.0/16",<br/>    "cnetwork_subnet_cidrs": [<br/>      "10.11.2.32/28",<br/>      "10.11.2.48/28"<br/>    ],<br/>    "endpoint_subnet_cidrs": [<br/>      "10.11.2.0/28",<br/>      "10.11.2.16/28"<br/>    ],<br/>    "instance_type": "t3.micro",<br/>    "name": "thirdpary-us-west-2",<br/>    "number_azs": 2,<br/>    "type": "thirdparty",<br/>    "workload_subnet_cidrs": [<br/>      "10.11.0.0/24",<br/>      "10.11.1.0/24"<br/>    ]<br/>  }<br/>}</pre> | no |
 | <a name="input_project_identifier"></a> [project\_identifier](#input\_project\_identifier) | Project Identifier. | `string` | `"CloudWAN_Workshop"` | no |
-| <a name="input_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#input\_stockholm\_inspection\_vpc) | Information about the Inspection VPC to create in eu-north-1. | `any` | <pre>{<br>  "cidr_block": "100.64.0.0/16",<br>  "cnetwork_subnet_cidrs": [<br>    "100.64.0.96/28",<br>    "100.64.0.112/28",<br>    "100.64.0.128/28"<br>  ],<br>  "inspection_subnet_cidrs": [<br>    "100.64.0.48/28",<br>    "100.64.0.64/28",<br>    "100.64.0.80/28"<br>  ],<br>  "name": "inspection-eu-north-1",<br>  "number_azs": 2,<br>  "public_subnet_cidrs": [<br>    "100.64.0.0/28",<br>    "100.64.0.16/28",<br>    "100.64.0.32/28"<br>  ]<br>}</pre> | no |
-| <a name="input_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#input\_stockholm\_legacy\_vpc) | Information about the Legacy VPC to create in us-west-2. | `any` | <pre>{<br>  "cidr_block": "10.12.0.0/16",<br>  "endpoint_subnet_cidrs": [<br>    "10.12.3.0/28",<br>    "10.12.3.16/28",<br>    "10.12.3.32/28"<br>  ],<br>  "instance_type": "t3.micro",<br>  "name": "legacy-us-west-2",<br>  "number_azs": 2,<br>  "tgw_subnet_cidrs": [<br>    "10.12.3.48/28",<br>    "10.12.3.64/28",<br>    "10.12.3.80/28"<br>  ],<br>  "workload_subnet_cidrs": [<br>    "10.12.0.0/24",<br>    "10.12.1.0/24",<br>    "10.12.2.0/24"<br>  ]<br>}</pre> | no |
-| <a name="input_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#input\_stockholm\_spoke\_vpcs) | Information about the VPCs to create in eu-north-1. | `any` | <pre>{<br>  "non-prod": {<br>    "cidr_block": "10.11.0.0/16",<br>    "cnetwork_subnet_cidrs": [<br>      "10.11.3.48/28",<br>      "10.11.3.64/28",<br>      "10.11.3.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.11.3.0/28",<br>      "10.11.3.16/28",<br>      "10.11.3.32/28"<br>    ],<br>    "instance_type": "t3.micro",<br>    "name": "non-prod-eu-north-1",<br>    "number_azs": 2,<br>    "type": "nonprod",<br>    "workload_subnet_cidrs": [<br>      "10.11.0.0/24",<br>      "10.11.1.0/24",<br>      "10.11.2.0/24"<br>    ]<br>  },<br>  "prod": {<br>    "cidr_block": "10.10.0.0/16",<br>    "cnetwork_subnet_cidrs": [<br>      "10.10.3.48/28",<br>      "10.10.3.64/28",<br>      "10.10.3.80/28"<br>    ],<br>    "endpoint_subnet_cidrs": [<br>      "10.10.3.0/28",<br>      "10.10.3.16/28",<br>      "10.10.3.32/28"<br>    ],<br>    "instance_type": "t3.micro",<br>    "name": "prod-eu-north-1",<br>    "number_azs": 2,<br>    "type": "prod",<br>    "workload_subnet_cidrs": [<br>      "10.10.0.0/24",<br>      "10.10.1.0/24",<br>      "10.10.2.0/24"<br>    ]<br>  }<br>}</pre> | no |
-| <a name="input_transit_gateway_asn"></a> [transit\_gateway\_asn](#input\_transit\_gateway\_asn) | Transit Gateway ASNs. | `map(number)` | <pre>{<br>  "oregon": 64515,<br>  "stockholm": 64516<br>}</pre> | no |
+| <a name="input_stockholm_egress_vpc"></a> [stockholm\_egress\_vpc](#input\_stockholm\_egress\_vpc) | Information about the Egress VPC to create in eu-north-1. | `any` | <pre>{<br/>  "cidr_block": "100.64.0.0/16",<br/>  "cnetwork_subnet_cidrs": [<br/>    "100.64.0.64/28",<br/>    "100.64.0.80/28"<br/>  ],<br/>  "inspection_subnet_cidrs": [<br/>    "100.64.0.32/28",<br/>    "100.64.0.48/28"<br/>  ],<br/>  "name": "egress-eu-north-1",<br/>  "number_azs": 2,<br/>  "public_subnet_cidrs": [<br/>    "100.64.0.0/28",<br/>    "100.64.0.16/28"<br/>  ]<br/>}</pre> | no |
+| <a name="input_stockholm_inspection_vpc"></a> [stockholm\_inspection\_vpc](#input\_stockholm\_inspection\_vpc) | Information about the Inspection VPC to create in eu-north-1. | `any` | <pre>{<br/>  "cidr_block": "100.64.0.0/16",<br/>  "cnetwork_subnet_cidrs": [<br/>    "100.64.0.32/28",<br/>    "100.64.0.48/28"<br/>  ],<br/>  "inspection_subnet_cidrs": [<br/>    "100.64.0.0/28",<br/>    "100.64.0.16/28"<br/>  ],<br/>  "name": "inspection-eu-north-1",<br/>  "number_azs": 2<br/>}</pre> | no |
+| <a name="input_stockholm_legacy_vpc"></a> [stockholm\_legacy\_vpc](#input\_stockholm\_legacy\_vpc) | Information about the Legacy VPC to create in eu-north-1. | `any` | <pre>{<br/>  "cidr_block": "10.2.0.0/16",<br/>  "endpoint_subnet_cidrs": [<br/>    "10.2.2.0/28",<br/>    "10.2.3.16/28"<br/>  ],<br/>  "instance_type": "t3.micro",<br/>  "name": "legacy-eu-north-1",<br/>  "number_azs": 2,<br/>  "tgw_subnet_cidrs": [<br/>    "10.2.3.32/28",<br/>    "10.2.3.48/28"<br/>  ],<br/>  "workload_subnet_cidrs": [<br/>    "10.2.0.0/24",<br/>    "10.2.1.0/24"<br/>  ]<br/>}</pre> | no |
+| <a name="input_stockholm_spoke_vpcs"></a> [stockholm\_spoke\_vpcs](#input\_stockholm\_spoke\_vpcs) | Information about the VPCs to create in eu-north-1. | `any` | <pre>{<br/>  "prod": {<br/>    "cidr_block": "10.0.0.0/16",<br/>    "cnetwork_subnet_cidrs": [<br/>      "10.0.2.32/28",<br/>      "10.0.2.48/28"<br/>    ],<br/>    "endpoint_subnet_cidrs": [<br/>      "10.0.2.0/28",<br/>      "10.0.2.16/28"<br/>    ],<br/>    "instance_type": "t3.micro",<br/>    "name": "prod-eu-north-1",<br/>    "number_azs": 2,<br/>    "type": "prod",<br/>    "workload_subnet_cidrs": [<br/>      "10.0.0.0/24",<br/>      "10.0.1.0/24"<br/>    ]<br/>  },<br/>  "thirdparty": {<br/>    "cidr_block": "10.1.0.0/16",<br/>    "cnetwork_subnet_cidrs": [<br/>      "10.1.2.32/28",<br/>      "10.1.2.48/28"<br/>    ],<br/>    "endpoint_subnet_cidrs": [<br/>      "10.1.2.0/28",<br/>      "10.1.2.16/28"<br/>    ],<br/>    "instance_type": "t3.micro",<br/>    "name": "thirdpary-us-west-2",<br/>    "number_azs": 2,<br/>    "type": "thirdparty",<br/>    "workload_subnet_cidrs": [<br/>      "10.1.0.0/24",<br/>      "10.1.1.0/24"<br/>    ]<br/>  }<br/>}</pre> | no |
+| <a name="input_transit_gateway_asn"></a> [transit\_gateway\_asn](#input\_transit\_gateway\_asn) | Transit Gateway ASNs. | `map(number)` | <pre>{<br/>  "oregon": 64515,<br/>  "stockholm": 64516<br/>}</pre> | no |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| <a name="output_cloud_wan"></a> [cloud\_wan](#output\_cloud\_wan) | AWS Cloud WAN resources. |
-| <a name="output_transit_gateway"></a> [transit\_gateway](#output\_transit\_gateway) | AWS Transit Gateway resources. |
-| <a name="output_vpcs"></a> [vpcs](#output\_vpcs) | VPCs created. |
+No outputs.
 <!-- END_TF_DOCS -->

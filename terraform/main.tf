@@ -5,43 +5,17 @@
 
 # ---------- LAB 1: BUILD A GLOBAL, SEGMENTED NETWORK WITH CENTRAL EGRESS ----------
 
-# GLOBAL NETWORK
-resource "aws_networkmanager_global_network" "global_network" {
-  provider = aws.awsoregon
+# CLOUD WAN RESOURCES (GLOBAL & CORE NETWORK)
+module "cloud_wan" {
+  source  = "aws-ia/cloudwan/aws"
+  version = "3.3.0"
 
-  description = "Cloud WAN Workshop - Global Network."
+  global_network = { description = "Global Network - ${var.project_identifier}" }
 
-  tags = {
-    Name = "Global Network - ${var.project_identifier}"
+  core_network = {
+    description     = "Core Network - ${var.project_identifier}"
+    policy_document = data.aws_networkmanager_core_network_policy_document.core_nw_policy.json
   }
-}
-
-# CORE NETWORK
-resource "aws_networkmanager_core_network" "core_network" {
-  provider = aws.awsoregon
-
-  description       = "Cloud WAN Workshop - Core Network."
-  global_network_id = aws_networkmanager_global_network.global_network.id
-
-  create_base_policy  = true
-  base_policy_regions = values({ for k, v in var.aws_regions : k => v })
-
-  tags = {
-    Name = "Core Network - ${var.project_identifier}"
-  }
-}
-
-# CORE NETWORK POLICY ATTACHMENT
-resource "aws_networkmanager_core_network_policy_attachment" "policy_attachment" {
-  provider = aws.awsoregon
-
-  core_network_id = aws_networkmanager_core_network.core_network.id
-  policy_document = data.aws_networkmanager_core_network_policy_document.core_nw_policy.json
-
-  depends_on = [
-    module.oregon_spoke_vpcs,
-    module.stockholm_spoke_vpcs
-  ]
 }
 
 # RESOURCES IN OREGON (us-west-2)
@@ -49,95 +23,33 @@ resource "aws_networkmanager_core_network_policy_attachment" "policy_attachment"
 module "oregon_spoke_vpcs" {
   for_each  = var.oregon_spoke_vpcs
   source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
+  version   = "= 4.4.4"
   providers = { aws = aws.awsoregon }
 
-  name       = each.key
+  name       = each.value.name
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   # core_network = {
-  #   id  = aws_networkmanager_core_network.core_network.id
-  #   arn = aws_networkmanager_core_network.core_network.arn
+  #   id  = module.cloud_wan.core_network.id
+  #   arn = module.cloud_wan.core_network.arn
   # }
   # core_network_routes = {
   #   workload = "0.0.0.0/0"
   # }
 
   subnets = {
-    vpc_endpoints = { cidrs = slice(each.value.endpoint_subnet_cidrs, 0, each.value.number_azs) }
-    workload      = { cidrs = slice(each.value.workload_subnet_cidrs, 0, each.value.number_azs) }
+    vpc_endpoints = { cidrs = each.value.endpoint_subnet_cidrs }
+    workload      = { cidrs = each.value.workload_subnet_cidrs }
     # core_network = {
-    #   cidrs = slice(each.value.cnetwork_subnet_cidrs, 0, each.value.number_azs)
+    #   cidrs = each.value.cnetwork_subnet_cidrs
 
     #   tags = {
-    #     "${each.value.type}" = true
+    #     domain = "${each.value.type}"
     #   }
     # }
   }
 }
-
-# Inspection VPC - definition in variables.tf
-module "oregon_inspection_vpc" {
-  source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
-  providers = { aws = aws.awsoregon }
-
-  name       = var.oregon_inspection_vpc.name
-  cidr_block = var.oregon_inspection_vpc.cidr_block
-  az_count   = var.oregon_inspection_vpc.number_azs
-
-  # core_network = {
-  #   id  = aws_networkmanager_core_network.core_network.id
-  #   arn = aws_networkmanager_core_network.core_network.arn
-  # }
-  # core_network_routes = {
-  #   inspection = "10.0.0.0/8"
-  # }
-
-  subnets = {
-    public = {
-      cidrs                     = slice(var.oregon_inspection_vpc.public_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
-      nat_gateway_configuration = "all_azs"
-    }
-    inspection = {
-      cidrs                   = slice(var.oregon_inspection_vpc.inspection_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
-      connect_to_public_natgw = true
-    }
-    # core_network = {
-    #   cidrs              = slice(var.oregon_inspection_vpc.cnetwork_subnet_cidrs, 0, var.oregon_inspection_vpc.number_azs)
-    #   require_acceptance = true
-    #   accept_attachment  = true
-
-    #   tags = {
-    #     sharedservices = true
-    #   }
-    # }
-  }
-}
-
-# AWS Network Firewall Resource
-# module "oregon_network_firewall" {
-#   source    = "aws-ia/networkfirewall/aws"
-#   version   = "1.0.1"
-#   providers = { aws = aws.awsoregon }
-
-#   network_firewall_name        = "anfw-oregon"
-#   network_firewall_description = "AWS Network Firewall - Oregon"
-#   network_firewall_policy      = aws_networkfirewall_firewall_policy.oregon_fwpolicy.arn
-
-#   vpc_id      = module.oregon_inspection_vpc.vpc_attributes.id
-#   vpc_subnets = { for k, v in module.oregon_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
-#   number_azs  = var.oregon_inspection_vpc.number_azs
-
-#   routing_configuration = {
-#     centralized_inspection_with_egress = {
-#       connectivity_subnet_route_tables = { for k, v in module.oregon_inspection_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
-#       public_subnet_route_tables       = { for k, v in module.oregon_inspection_vpc.rt_attributes_by_type_by_az.public : k => v.id }
-#       network_cidr_blocks              = ["10.0.0.0/8"]
-#     }
-#   }
-# }
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "oregon_compute" {
@@ -152,100 +64,159 @@ module "oregon_compute" {
   instance_type   = var.oregon_spoke_vpcs[each.key].instance_type
 }
 
+# Inspection VPC - definition in variables.tf
+module "oregon_inspection_vpc" {
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.4.4"
+  providers = { aws = aws.awsoregon }
+
+  name       = var.oregon_inspection_vpc.name
+  cidr_block = var.oregon_inspection_vpc.cidr_block
+  az_count   = var.oregon_inspection_vpc.number_azs
+
+  core_network = {
+    id  = module.cloud_wan.core_network.id
+    arn = module.cloud_wan.core_network.arn
+  }
+  core_network_routes = {
+    inspection = "0.0.0.0/0"
+  }
+
+  subnets = {
+    inspection = { cidrs = var.oregon_inspection_vpc.inspection_subnet_cidrs }
+    core_network = {
+      cidrs              = var.oregon_inspection_vpc.cnetwork_subnet_cidrs
+      require_acceptance = true
+      accept_attachment  = true
+
+      tags = {
+        nfg = "inspection"
+      }
+    }
+  }
+}
+
+# AWS Network Firewall Resource (Inspection VPC)
+module "oregon_network_firewall_inspection" {
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "1.0.2"
+  providers = { aws = aws.awsoregon }
+
+  network_firewall_name        = "anfw-oregon-inspection"
+  network_firewall_description = "AWS Network Firewall - Oregon (Inspection)"
+  network_firewall_policy      = module.oregon_firewall_policies.eastwest_policy_arn
+
+  vpc_id      = module.oregon_inspection_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.oregon_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.oregon_inspection_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_without_egress = {
+      connectivity_subnet_route_tables = { for k, v in module.oregon_inspection_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
+    }
+  }
+}
+
+# Egress VPC - definition in variables.tf
+module "oregon_egress_vpc" {
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.4.4"
+  providers = { aws = aws.awsoregon }
+
+  name       = var.oregon_egress_vpc.name
+  cidr_block = var.oregon_egress_vpc.cidr_block
+  az_count   = var.oregon_egress_vpc.number_azs
+
+  core_network = {
+    id  = module.cloud_wan.core_network.id
+    arn = module.cloud_wan.core_network.arn
+  }
+  core_network_routes = {
+    inspection = "10.0.0.0/8"
+  }
+
+  subnets = {
+    public = {
+      cidrs                     = var.oregon_egress_vpc.public_subnet_cidrs
+      nat_gateway_configuration = "all_azs"
+    }
+    inspection = {
+      cidrs                   = var.oregon_egress_vpc.inspection_subnet_cidrs
+      connect_to_public_natgw = true
+    }
+    core_network = {
+      cidrs              = var.oregon_egress_vpc.cnetwork_subnet_cidrs
+      require_acceptance = true
+      accept_attachment  = true
+
+      tags = {
+        nfg = "egressinspection"
+      }
+    }
+  }
+}
+
+# AWS Network Firewall Resource (Egress VPC)
+module "oregon_network_firewall_egress" {
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "1.0.2"
+  providers = { aws = aws.awsoregon }
+
+  network_firewall_name        = "anfw-oregon-egress"
+  network_firewall_description = "AWS Network Firewall - Oregon (Egress)"
+  network_firewall_policy      = module.oregon_firewall_policies.egress_policy_arn
+
+  vpc_id      = module.oregon_egress_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.oregon_egress_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.oregon_egress_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_with_egress = {
+      connectivity_subnet_route_tables = { for k, v in module.oregon_egress_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
+      public_subnet_route_tables       = { for k, v in module.oregon_egress_vpc.rt_attributes_by_type_by_az.public : k => v.id }
+      network_cidr_blocks              = ["10.0.0.0/8"]
+    }
+  }
+}
+
+# Network Firewall policies
+module "oregon_firewall_policies" {
+  source    = "./modules/firewall_policy"
+  providers = { aws = aws.awsoregon }
+}
+
 # RESOURCES IN STOCKHOLM REGION (eu-north-1)
 # Spoke VPCs - definition in variables.tf
 module "stockholm_spoke_vpcs" {
   for_each  = var.stockholm_spoke_vpcs
   source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
+  version   = "= 4.4.4"
   providers = { aws = aws.awsstockholm }
 
-  name       = each.key
+  name       = each.value.name
   cidr_block = each.value.cidr_block
   az_count   = each.value.number_azs
 
   # core_network = {
-  #   id  = aws_networkmanager_core_network.core_network.id
-  #   arn = aws_networkmanager_core_network.core_network.arn
+  #   id  = module.cloud_wan.core_network.id
+  #   arn = module.cloud_wan.core_network.arn
   # }
   # core_network_routes = {
   #   workload = "0.0.0.0/0"
   # }
 
   subnets = {
-    vpc_endpoints = { cidrs = slice(each.value.endpoint_subnet_cidrs, 0, each.value.number_azs) }
-    workload      = { cidrs = slice(each.value.workload_subnet_cidrs, 0, each.value.number_azs) }
+    vpc_endpoints = { cidrs = each.value.endpoint_subnet_cidrs }
+    workload      = { cidrs = each.value.workload_subnet_cidrs }
     # core_network = {
-    #   cidrs = slice(each.value.cnetwork_subnet_cidrs, 0, each.value.number_azs)
+    #   cidrs = each.value.cnetwork_subnet_cidrs
 
     #   tags = {
-    #     "${each.value.type}" = true
+    #     domain = "${each.value.type}"
     #   }
     # }
   }
 }
-
-# Inspection VPC - definition in variables.tf
-module "stockholm_inspection_vpc" {
-  source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
-  providers = { aws = aws.awsstockholm }
-
-  name       = var.stockholm_inspection_vpc.name
-  cidr_block = var.stockholm_inspection_vpc.cidr_block
-  az_count   = var.stockholm_inspection_vpc.number_azs
-
-  # core_network = {
-  #   id  = aws_networkmanager_core_network.core_network.id
-  #   arn = aws_networkmanager_core_network.core_network.arn
-  # }
-  # core_network_routes = {
-  #   inspection = "10.0.0.0/8"
-  # }
-
-  subnets = {
-    public = {
-      cidrs                     = slice(var.stockholm_inspection_vpc.public_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
-      nat_gateway_configuration = "all_azs"
-    }
-    inspection = {
-      cidrs                   = slice(var.stockholm_inspection_vpc.inspection_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
-      connect_to_public_natgw = true
-    }
-    # core_network = {
-    #   cidrs              = slice(var.stockholm_inspection_vpc.cnetwork_subnet_cidrs, 0, var.stockholm_inspection_vpc.number_azs)
-    #   require_acceptance = true
-    #   accept_attachment  = true
-
-    #   tags = {
-    #     sharedservices = true
-    #   }
-    # }
-  }
-}
-
-# AWS Network Firewall Resource
-# module "stockholm_network_firewall" {
-#   source    = "aws-ia/networkfirewall/aws"
-#   version   = "1.0.1"
-#   providers = { aws = aws.awsstockholm }
-
-#   network_firewall_name        = "anfw-stockholm"
-#   network_firewall_description = "AWS Network Firewall - Stockholm"
-#   network_firewall_policy      = aws_networkfirewall_firewall_policy.stockholm_fwpolicy.arn
-
-#   vpc_id      = module.stockholm_inspection_vpc.vpc_attributes.id
-#   vpc_subnets = { for k, v in module.stockholm_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
-#   number_azs  = var.stockholm_inspection_vpc.number_azs
-
-#   routing_configuration = {
-#     centralized_inspection_with_egress = {
-#       connectivity_subnet_route_tables = { for k, v in module.stockholm_inspection_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
-#       public_subnet_route_tables       = { for k, v in module.stockholm_inspection_vpc.rt_attributes_by_type_by_az.public : k => v.id }
-#       network_cidr_blocks              = ["10.0.0.0/8"]
-#     }
-#   }
-# }
 
 # EC2 Instances (1 instance per subnet in each Spoke VPC)
 module "stockholm_compute" {
@@ -260,13 +231,169 @@ module "stockholm_compute" {
   instance_type   = var.stockholm_spoke_vpcs[each.key].instance_type
 }
 
+# Inspection VPC - definition in variables.tf
+module "stockholm_inspection_vpc" {
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.4.4"
+  providers = { aws = aws.awsstockholm }
+
+  name       = var.stockholm_inspection_vpc.name
+  cidr_block = var.stockholm_inspection_vpc.cidr_block
+  az_count   = var.stockholm_inspection_vpc.number_azs
+
+  core_network = {
+    id  = module.cloud_wan.core_network.id
+    arn = module.cloud_wan.core_network.arn
+  }
+  core_network_routes = {
+    inspection = "0.0.0.0/0"
+  }
+
+  subnets = {
+    inspection = { cidrs = var.stockholm_inspection_vpc.inspection_subnet_cidrs }
+    core_network = {
+      cidrs              = var.stockholm_inspection_vpc.cnetwork_subnet_cidrs
+      require_acceptance = true
+      accept_attachment  = true
+
+      tags = {
+        nfg = "inspection"
+      }
+    }
+  }
+}
+
+# AWS Network Firewall Resource (Inspection VPC)
+module "stockholm_network_firewall_inspection" {
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "1.0.2"
+  providers = { aws = aws.awsstockholm }
+
+  network_firewall_name        = "anfw-stockholm-inspection"
+  network_firewall_description = "AWS Network Firewall - Stockholm (Inspection)"
+  network_firewall_policy      = module.stockholm_firewall_policies.eastwest_policy_arn
+
+  vpc_id      = module.stockholm_inspection_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.stockholm_inspection_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.stockholm_inspection_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_without_egress = {
+      connectivity_subnet_route_tables = { for k, v in module.stockholm_inspection_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
+    }
+  }
+}
+
+# Egress VPC - definition in variables.tf
+module "stockholm_egress_vpc" {
+  source    = "aws-ia/vpc/aws"
+  version   = "= 4.4.4"
+  providers = { aws = aws.awsstockholm }
+
+  name       = var.stockholm_egress_vpc.name
+  cidr_block = var.stockholm_egress_vpc.cidr_block
+  az_count   = var.stockholm_egress_vpc.number_azs
+
+  core_network = {
+    id  = module.cloud_wan.core_network.id
+    arn = module.cloud_wan.core_network.arn
+  }
+  core_network_routes = {
+    inspection = "10.0.0.0/8"
+  }
+
+  subnets = {
+    public = {
+      cidrs                     = var.stockholm_egress_vpc.public_subnet_cidrs
+      nat_gateway_configuration = "all_azs"
+    }
+    inspection = {
+      cidrs                   = var.stockholm_egress_vpc.inspection_subnet_cidrs
+      connect_to_public_natgw = true
+    }
+    core_network = {
+      cidrs              = var.stockholm_egress_vpc.cnetwork_subnet_cidrs
+      require_acceptance = true
+      accept_attachment  = true
+
+      tags = {
+        nfg = "egressinspection"
+      }
+    }
+  }
+}
+
+# AWS Network Firewall Resource (Egress VPC)
+module "stockholm_network_firewall_egress" {
+  source    = "aws-ia/networkfirewall/aws"
+  version   = "1.0.2"
+  providers = { aws = aws.awsstockholm }
+
+  network_firewall_name        = "anfw-stockholm-egress"
+  network_firewall_description = "AWS Network Firewall - Stockholm (Egress)"
+  network_firewall_policy      = module.stockholm_firewall_policies.egress_policy_arn
+
+  vpc_id      = module.stockholm_egress_vpc.vpc_attributes.id
+  vpc_subnets = { for k, v in module.stockholm_egress_vpc.private_subnet_attributes_by_az : split("/", k)[1] => v.id if split("/", k)[0] == "inspection" }
+  number_azs  = var.stockholm_egress_vpc.number_azs
+
+  routing_configuration = {
+    centralized_inspection_with_egress = {
+      connectivity_subnet_route_tables = { for k, v in module.stockholm_egress_vpc.rt_attributes_by_type_by_az.core_network : k => v.id }
+      public_subnet_route_tables       = { for k, v in module.stockholm_egress_vpc.rt_attributes_by_type_by_az.public : k => v.id }
+      network_cidr_blocks              = ["10.0.0.0/8"]
+    }
+  }
+}
+
+# Network Firewall policies
+module "stockholm_firewall_policies" {
+  source    = "./modules/firewall_policy"
+  providers = { aws = aws.awsstockholm }
+}
+
+# # VPN CONNECTION (LONDON)
+# # Customer gateway
+# resource "aws_customer_gateway" "cgw" {
+#   provider = aws.awsstockholm
+
+#   bgp_asn    = 64512
+#   ip_address = aws_eip.cgw_eip.public_ip
+#   type       = "ipsec.1"
+
+#   tags = {
+#     Name = "cgw-cwan-workshop"
+#   }
+# }
+
+# # Site-to-Site VPN connection
+# resource "aws_vpn_connection" "vpn" {
+#   provider = aws.awsstockholm
+
+#   customer_gateway_id = aws_customer_gateway.cgw.id
+#   type                = "ipsec.1"
+# }
+
+# # VPN attachment
+# resource "aws_networkmanager_site_to_site_vpn_attachment" "vpn_attachment" {
+#   provider = aws.awsstockholm
+
+#   core_network_id    = module.cloud_wan.core_network.id
+#   vpn_connection_arn = aws_vpn_connection.vpn.arn
+
+#   tags = {
+#     Name   = "onpremises"
+#     domain = "onpremises"
+#   }
+# }
+
 # ---------- LAB 2: FEDERATE WITH AWS TRANSIT GATEWAY (TGW) ----------
 
 # RESOURCES IN OREGON (us-west-2)
 # Legacy VPC
 module "oregon_legacy_vpc" {
   source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
+  version   = "= 4.4.4"
   providers = { aws = aws.awsoregon }
 
   name       = var.oregon_legacy_vpc.name
@@ -274,9 +401,9 @@ module "oregon_legacy_vpc" {
   az_count   = var.oregon_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.oregon_tgw.id
-  # transit_gateway_routes = {
-  #   workload = "0.0.0.0/0"
-  # }
+  transit_gateway_routes = {
+    workload = "0.0.0.0/0"
+  }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.oregon_legacy_vpc.endpoint_subnet_cidrs, 0, var.oregon_legacy_vpc.number_azs) }
@@ -342,11 +469,11 @@ module "oregon_legacy_compute" {
   instance_type   = var.oregon_legacy_vpc.instance_type
 }
 
-# Cloud WAN - Transit Gateway peering
+# # Cloud WAN - Transit Gateway peering
 # resource "aws_networkmanager_transit_gateway_peering" "cwan_oregon_peering" {
 #   provider = aws.awsoregon
 
-#   core_network_id     = aws_networkmanager_core_network.core_network.id
+#   core_network_id     = module.cloud_wan.core_network.id
 #   transit_gateway_arn = aws_ec2_transit_gateway.oregon_tgw.arn
 # }
 
@@ -368,7 +495,7 @@ module "oregon_legacy_compute" {
 #   transit_gateway_policy_table_id = aws_ec2_transit_gateway_policy_table.oregon_tgw_policy_table.id
 # }
 
-# Transit Gateway Route Table attachment
+# # Transit Gateway Route Table attachment
 # resource "aws_networkmanager_transit_gateway_route_table_attachment" "oregon_cwan_tgw_rt_attachment" {
 #   provider = aws.awsoregon
 
@@ -376,8 +503,7 @@ module "oregon_legacy_compute" {
 #   transit_gateway_route_table_arn = aws_ec2_transit_gateway_route_table.oregon_tgw_rt.arn
 
 #   tags = {
-#     Name   = "us-west-2-tgw-rt-attachment"
-#     legacy = true
+#     Name = "us-west-2-tgw-rt-attachment"
 #   }
 
 #   depends_on = [
@@ -389,7 +515,7 @@ module "oregon_legacy_compute" {
 # Legacy VPC
 module "stockholm_legacy_vpc" {
   source    = "aws-ia/vpc/aws"
-  version   = "= 4.4.2"
+  version   = "= 4.4.4"
   providers = { aws = aws.awsstockholm }
 
   name       = var.stockholm_legacy_vpc.name
@@ -397,9 +523,9 @@ module "stockholm_legacy_vpc" {
   az_count   = var.stockholm_legacy_vpc.number_azs
 
   transit_gateway_id = aws_ec2_transit_gateway.stockholm_tgw.id
-  # transit_gateway_routes = {
-  #   workload = "0.0.0.0/0"
-  # }
+  transit_gateway_routes = {
+    workload = "0.0.0.0/0"
+  }
 
   subnets = {
     vpc_endpoints = { cidrs = slice(var.stockholm_legacy_vpc.endpoint_subnet_cidrs, 0, var.stockholm_legacy_vpc.number_azs) }
@@ -465,11 +591,11 @@ module "stockholm_legacy_compute" {
   instance_type   = var.stockholm_legacy_vpc.instance_type
 }
 
-# Cloud WAN - Transit Gateway peering
+# # Cloud WAN - Transit Gateway peering
 # resource "aws_networkmanager_transit_gateway_peering" "cwan_stockholm_peering" {
 #   provider = aws.awsstockholm
 
-#   core_network_id     = aws_networkmanager_core_network.core_network.id
+#   core_network_id     = module.cloud_wan.core_network.id
 #   transit_gateway_arn = aws_ec2_transit_gateway.stockholm_tgw.arn
 # }
 
@@ -491,7 +617,7 @@ module "stockholm_legacy_compute" {
 #   transit_gateway_policy_table_id = aws_ec2_transit_gateway_policy_table.stockholm_tgw_policy_table.id
 # }
 
-# Transit Gateway Route Table attachment
+# # Transit Gateway Route Table attachment
 # resource "aws_networkmanager_transit_gateway_route_table_attachment" "stockholm_cwan_tgw_rt_attachment" {
 #   provider = aws.awsstockholm
 
@@ -499,8 +625,7 @@ module "stockholm_legacy_compute" {
 #   transit_gateway_route_table_arn = aws_ec2_transit_gateway_route_table.stockholm_tgw_rt.arn
 
 #   tags = {
-#     Name   = "eu-north-1-tgw-rt-attachment"
-#     legacy = true
+#     Name = "eu-north-1-tgw-rt-attachment"
 #   }
 
 #   depends_on = [

@@ -19,21 +19,22 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
       var.aws_regions.oregon,
       var.aws_regions.stockholm
     ]
-    require_attachment_acceptance = false
-    isolate_attachments           = true
+    require_attachment_acceptance = true
+    isolate_attachments           = false
   }
 
   segments {
-    name = "nonprod"
+    name = "thirdparty"
     edge_locations = [
       var.aws_regions.oregon,
       var.aws_regions.stockholm
     ]
     require_attachment_acceptance = false
+    isolate_attachments           = true
   }
 
   segments {
-    name = "sharedservices"
+    name = "onpremises"
   }
 
   # segments {
@@ -45,17 +46,74 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   #   require_attachment_acceptance = false
   # }
 
+  network_function_groups {
+    name                          = "EgressInspectionVpcs"
+    require_attachment_acceptance = false
+  }
+
+  network_function_groups {
+    name                          = "InspectionVpcs"
+    require_attachment_acceptance = false
+  }
+
+  # segment_actions {
+  #   action     = "share"
+  #   mode       = "attachment-route"
+  #   segment    = "onpremises"
+  #   share_with = ["prod"]
+  # }
+
+  # segment_actions {
+  #   action     = "share"
+  #   mode       = "attachment-route"
+  #   segment    = "legacy"
+  #   share_with = ["prod"]
+  # }
+
+  # segment_actions {
+  #   action  = "send-to"
+  #   segment = "prod"
+
+  #   via {
+  #     network_function_groups = ["EgressInspectionVpcs"]
+  #   }
+  # }
+
+  # segment_actions {
+  #   action  = "send-to"
+  #   segment = "thirdparty"
+
+  #   via {
+  #     network_function_groups = ["EgressInspectionVpcs"]
+  #   }
+  # }
+
+  # segment_actions {
+  #   action  = "send-via"
+  #   segment = "thirdparty"
+  #   mode    = "dual-hop"
+
+  #   when_sent_to {
+  #     segments = ["prod"]
+  #   }
+
+  #   via {
+  #     network_function_groups = ["InspectionVpcs"]
+  #   }
+  # }
+
   # attachment_policies {
   #   rule_number     = 100
   #   condition_logic = "or"
 
   #   conditions {
-  #     type = "tag-exists"
-  #     key  = "prod"
+  #     type     = "tag-value"
+  #     operator = "equals"
+  #     key      = "nfg"
+  #     value    = "inspection"
   #   }
   #   action {
-  #     association_method = "constant"
-  #     segment            = "prod"
+  #     add_to_network_function_group = "InspectionVpcs"
   #   }
   # }
 
@@ -64,12 +122,13 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
   #   condition_logic = "or"
 
   #   conditions {
-  #     type = "tag-exists"
-  #     key  = "nonprod"
+  #     type     = "tag-value"
+  #     operator = "equals"
+  #     key      = "nfg"
+  #     value    = "egressinspection"
   #   }
   #   action {
-  #     association_method = "constant"
-  #     segment            = "nonprod"
+  #     add_to_network_function_group = "EgressInspectionVpcs"
   #   }
   # }
 
@@ -79,66 +138,26 @@ data "aws_networkmanager_core_network_policy_document" "core_nw_policy" {
 
   #   conditions {
   #     type = "tag-exists"
-  #     key  = "sharedservices"
+  #     key  = "domain"
   #   }
   #   action {
-  #     association_method = "constant"
-  #     segment            = "sharedservices"
+  #     association_method = "tag"
+  #     tag_value_of_key   = "domain"
   #   }
   # }
 
   # attachment_policies {
   #   rule_number     = 400
   #   condition_logic = "or"
-
   #   conditions {
-  #     type = "tag-exists"
-  #     key  = "legacy"
+  #     type     = "attachment-type"
+  #     operator = "equals"
+  #     value    = "transit-gateway-route-table"
   #   }
   #   action {
   #     association_method = "constant"
   #     segment            = "legacy"
   #   }
-  # }
-
-  # segment_actions {
-  #   action  = "create-route"
-  #   segment = "prod"
-  #   destination_cidr_blocks = [
-  #     "0.0.0.0/0"
-  #   ]
-  #   destinations = [
-  #     module.oregon_inspection_vpc.core_network_attachment.id,
-  #     module.stockholm_inspection_vpc.core_network_attachment.id
-  #   ]
-  # }
-  # segment_actions {
-  #   action  = "create-route"
-  #   segment = "nonprod"
-  #   destination_cidr_blocks = [
-  #     "0.0.0.0/0"
-  #   ]
-  #   destinations = [
-  #     module.oregon_inspection_vpc.core_network_attachment.id,
-  #     module.stockholm_inspection_vpc.core_network_attachment.id
-  #   ]
-  # }
-
-  # segment_actions {
-  #   action     = "share"
-  #   mode       = "attachment-route"
-  #   segment    = "sharedservices"
-  #   share_with = ["*"]
-  # }
-
-  # segment_actions {
-  #   action  = "share"
-  #   mode    = "attachment-route"
-  #   segment = "legacy"
-  #   share_with = [
-  #     "prod",
-  #     "nonprod"
-  #   ]
   # }
 }
 

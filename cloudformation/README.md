@@ -4,7 +4,7 @@ AWS Cloud WAN is a managed wide-area networking (WAN) service that you can use t
 
 This repository shows you an example in AWS CloudFormation of global communication with AWS Cloud WAN, showing the same architecture you can build in the [AWS Cloud WAN Workshop](https://catalog.workshops.aws/cloudwan/en-US).
 
-![architecture diagram](../images/cloud\_wan\_architecture.png "AWS Cloud WAN diagram")
+![architecture diagram](../images/cloudwan_workshop_architecture.png "AWS Cloud WAN diagram")
 
 **NOTE**: The resources created incur costs in your AWS Account. Consider deleting the resources created once your tests are done. For more information, check the [AWS Cloud WAN pricing](https://aws.amazon.com/cloud-wan/pricing/).
 

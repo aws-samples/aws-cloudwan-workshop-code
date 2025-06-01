@@ -5,7 +5,7 @@ AWS Cloud WAN is a managed wide-area networking (WAN) service that you can use t
 
 This repository shows you an example in Terraform of global communication with AWS Cloud WAN, showing the same architecture you can build in the [AWS Cloud WAN Workshop](https://catalog.workshops.aws/cloudwan/en-US).
 
-![architecture diagram](../images/cloud\\_wan\\_architecture.png "AWS Cloud WAN diagram")
+![architecture diagram](../images/cloudwan\_workshop\_architecture.png "AWS Cloud WAN diagram")
 
 **NOTE**: The resources created incur costs in your AWS Account. Consider deleting the resources created once your tests are done. For more information, check the [AWS Cloud WAN pricing](https://aws.amazon.com/cloud-wan/pricing/).
 
@@ -30,10 +30,13 @@ This repository shows you an example in Terraform of global communication with A
 
 ### Lab 1 - Build a global, segmented network with central egress
 
+**NOTE**: Due to the Terraform modules used, Inspection VPCs' attachments will be created at the same time as the initial environment. Take that into account when following the lab instructions.
+
 1. If you want to follow the lab guide:
   * `terraform apply` to build the initial environment.
 2. If you want to build the end architecture after finishing the steps, uncomment the following lines and do `terraform apply`:
-  *
+  * In `cloudwan_policy.tf` uncomment lines 59-64 and 73-147.
+  * In `main.tf` uncomment lines 33-39, 44-50, 200-206, 211-217, and 355-388.
 
 Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
 
@@ -41,8 +44,10 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 
 1. If you want to follow the lab guide:
   * Check point 2 above to uncomment the corresponding lines and do `terraform apply` to build the initial environment.
+  * Follow [Step 6](https://catalog.workshops.aws/cloudwan/en-US/3-labs/lab1/step-6) in the workshop guide to configure the VPN connection.
 2. If you want to build the end architecture after finishing the steps, uncomment the following lines and do `terraform apply`:
-  *
+  * In `cloudwan_policy.tf` uncomment lines 40-47, 66-71, and 149-161.
+  * In `main.tf` uncomment lines 472-512 and 594-634.
 
 Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
 
@@ -91,13 +96,8 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 
 | Name | Type |
 |------|------|
-| [aws_customer_gateway.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/customer_gateway) | resource |
 | [aws_ec2_transit_gateway.oregon_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
 | [aws_ec2_transit_gateway.stockholm_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
-| [aws_ec2_transit_gateway_policy_table.oregon_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
-| [aws_ec2_transit_gateway_policy_table.stockholm_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
-| [aws_ec2_transit_gateway_policy_table_association.oregon_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
-| [aws_ec2_transit_gateway_policy_table_association.stockholm_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
 | [aws_ec2_transit_gateway_route_table.oregon_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table.stockholm_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table_association.oregon_tgw_rt_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_association) | resource |
@@ -112,13 +112,7 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 | [aws_iam_role_policy_attachment.iam_role_policy_attachment_ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.vpn_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_instance.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
-| [aws_networkmanager_site_to_site_vpn_attachment.vpn_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_site_to_site_vpn_attachment) | resource |
-| [aws_networkmanager_transit_gateway_peering.cwan_oregon_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
-| [aws_networkmanager_transit_gateway_peering.cwan_stockholm_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
-| [aws_networkmanager_transit_gateway_route_table_attachment.oregon_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
-| [aws_networkmanager_transit_gateway_route_table_attachment.stockholm_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
 | [aws_security_group.cgw_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
-| [aws_vpn_connection.vpn](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpn_connection) | resource |
 | [aws_networkmanager_core_network_policy_document.core_nw_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) | data source |
 | [aws_ssm_parameter.ubuntu_ami](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssm_parameter) | data source |
 

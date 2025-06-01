@@ -94,7 +94,7 @@ undeploy-stockholm:
 
 undeploy-onprem: ONPREM_STACK_ID = $(shell aws cloudformation list-stacks --region eu-west-2 | jq '.StackSummaries[] | select(.StackStatus=="DELETE_COMPLETE" | not)' | jq 'select(.StackName=="${ONPREM_STACK_NAME}")' | jq .StackId -r)
 undeploy-onprem: VPN_STACK_ID = $(shell aws cloudformation list-stacks --region eu-north-1 | jq '.StackSummaries[] | select(.StackStatus=="DELETE_COMPLETE" | not)' | jq 'select(.StackName=="${VPN_STACK_NAME}")' | jq .StackId -r)
-undeploy-cloudwan:
+undeploy-onprem:
 	aws cloudformation delete-stack --stack-name "$(ONPREM_STACK_NAME)" --region eu-west-2
 	aws cloudformation delete-stack --stack-name "$(VPN_STACK_NAME)" --region eu-north-1
 	aws cloudformation wait stack-delete-complete --stack-name "${ONPREM_STACK_ID}" --region eu-west-2

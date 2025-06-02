@@ -94,7 +94,7 @@ data "aws_networkmanager_core_network_policy_document" "lab3_core_nw_policy" {
     }
 
     via {
-      network_function_groups = ["InspectionVpcs"]
+      network_function_groups = ["EgressInspectionVpcs"]
     }
   }
 

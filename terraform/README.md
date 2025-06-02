@@ -43,11 +43,18 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 ### Lab 2 - Federate with AWS Transit Gateway
 
 1. If you want to follow the lab guide:
-  * Check point 2 above to uncomment the corresponding lines and do `terraform apply` to build the initial environment.
+  * Check point 2 in [Lab 1](#lab-1---build-a-global-segmented-network-with-central-egress) to uncomment the corresponding lines and do `terraform apply` to build the initial environment.
   * Follow [Step 6](https://catalog.workshops.aws/cloudwan/en-US/3-labs/lab1/step-6) in the workshop guide to configure the VPN connection.
 2. If you want to build the end architecture after finishing the steps, uncomment the following lines and do `terraform apply`:
-  * In `cloudwan_policy.tf` uncomment lines 40-47, 66-71, and 149-161.
-  * In `main.tf` uncomment lines 472-512 and 594-634.
+  * In `cloudwan_policy.tf` uncomment lines 40-47, 59-71, and 73-161.
+  * In `main.tf` uncomment lines 33-39, 44-50, 200-206, 211-217, 355-388, 472-512 and 594-634.
+
+Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
+
+### Lab 3 - Additional inspection scenarios
+
+1. If you want to follow the lab guide, check point 2 in [Lab 2](#lab-2---federate-with-aws-transit-gateway) to uncomment the corresponding lines and do `terraform apply` to build the initial environment.
+2. If you want to build the end architecture after finishing the steps, check [lab3.md](./lab3.md) to understand what to change from the provided code.
 
 Use `terraform destroy` to clean-up the test environment and avoid undesired charges.
 
@@ -96,8 +103,13 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 
 | Name | Type |
 |------|------|
+| [aws_customer_gateway.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/customer_gateway) | resource |
 | [aws_ec2_transit_gateway.oregon_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
 | [aws_ec2_transit_gateway.stockholm_tgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway) | resource |
+| [aws_ec2_transit_gateway_policy_table.oregon_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
+| [aws_ec2_transit_gateway_policy_table.stockholm_tgw_policy_table](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table) | resource |
+| [aws_ec2_transit_gateway_policy_table_association.oregon_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
+| [aws_ec2_transit_gateway_policy_table_association.stockholm_tgw_policy_table_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_policy_table_association) | resource |
 | [aws_ec2_transit_gateway_route_table.oregon_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table.stockholm_tgw_rt](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table) | resource |
 | [aws_ec2_transit_gateway_route_table_association.oregon_tgw_rt_association](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ec2_transit_gateway_route_table_association) | resource |
@@ -112,7 +124,13 @@ Use `terraform destroy` to clean-up the test environment and avoid undesired cha
 | [aws_iam_role_policy_attachment.iam_role_policy_attachment_ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.vpn_policy_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_instance.cgw](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance) | resource |
+| [aws_networkmanager_site_to_site_vpn_attachment.vpn_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_site_to_site_vpn_attachment) | resource |
+| [aws_networkmanager_transit_gateway_peering.cwan_oregon_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
+| [aws_networkmanager_transit_gateway_peering.cwan_stockholm_peering](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_peering) | resource |
+| [aws_networkmanager_transit_gateway_route_table_attachment.oregon_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
+| [aws_networkmanager_transit_gateway_route_table_attachment.stockholm_cwan_tgw_rt_attachment](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/networkmanager_transit_gateway_route_table_attachment) | resource |
 | [aws_security_group.cgw_sg](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/security_group) | resource |
+| [aws_vpn_connection.vpn](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/vpn_connection) | resource |
 | [aws_networkmanager_core_network_policy_document.core_nw_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/networkmanager_core_network_policy_document) | data source |
 | [aws_ssm_parameter.ubuntu_ami](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ssm_parameter) | data source |
 

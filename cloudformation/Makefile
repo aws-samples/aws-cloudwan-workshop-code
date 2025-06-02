@@ -30,7 +30,7 @@ deploy-initial-stockholm:
 deploy-onprem:
 	aws cloudformation deploy --stack-name "$(ONPREM_STACK_NAME)" --template-file OnPremises.yaml --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-west-2
 
-deploy-lab1: deploy-lab1-oregon deploy-lab1-stockholm deploy-onprem deploy-vpn
+deploy-lab1: deploy-cloudwan deploy-lab1-oregon deploy-lab1-stockholm deploy-onprem deploy-vpn
 
 deploy-lab1-oregon: CORENETWORK_ID = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkId`].OutputValue' --output text --region us-west-2 )
 deploy-lab1-oregon: CORENETWORK_ARN = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkArn`].OutputValue' --output text --region us-west-2 )
@@ -52,21 +52,37 @@ deploy-vpn: CGWPUBLICIP = $(shell aws cloudformation describe-stacks --stack-nam
 deploy-vpn:
 	aws cloudformation deploy --stack-name "$(VPN_STACK_NAME)" --template-file VPN.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" CgwPublicIp="$(CGWPUBLICIP)" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
 
-deploy-lab2: deploy-lab2-oregon deploy-lab2-stockholm deploy-onprem deploy-vpn
+deploy-lab2: deploy-cloudwan deploy-lab2-oregon deploy-lab2-stockholm deploy-onprem deploy-vpn
 
 deploy-lab2-oregon: CORENETWORK_ID = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkId`].OutputValue' --output text --region us-west-2 )
 deploy-lab2-oregon: CORENETWORK_ARN = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkArn`].OutputValue' --output text --region us-west-2 )
 deploy-lab2-oregon:
-	aws cloudformation deploy --stack-name "$(WORKLOAD_STACK_NAME)" --template-file Workloads.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab1" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
-	aws cloudformation deploy --stack-name "$(INSPECTION_STACK_NAME)" --template-file Inspection.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab1" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
-	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --capabilities CAPABILITY_IAM CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --no-fail-on-empty-changeset --region us-west-2
+	aws cloudformation deploy --stack-name "$(WORKLOAD_STACK_NAME)" --template-file Workloads.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
+	aws cloudformation deploy --stack-name "$(INSPECTION_STACK_NAME)" --template-file Inspection.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
+	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
 
 deploy-lab2-stockholm: CORENETWORK_ID = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkId`].OutputValue' --output text --region us-west-2 )
 deploy-lab2-stockholm: CORENETWORK_ARN = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkArn`].OutputValue' --output text --region us-west-2 )
 deploy-lab2-stockholm:
 	aws cloudformation deploy --stack-name "$(WORKLOAD_STACK_NAME)" --template-file Workloads.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab1" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
 	aws cloudformation deploy --stack-name "$(INSPECTION_STACK_NAME)" --template-file Inspection.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab1" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
-	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --capabilities CAPABILITY_IAM CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --no-fail-on-empty-changeset --region eu-north-1
+	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab2" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
+
+deploy-lab3: deploy-cloudwan deploy-lab3-oregon deploy-lab3-stockholm deploy-onprem deploy-vpn
+
+deploy-lab3-oregon: CORENETWORK_ID = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkId`].OutputValue' --output text --region us-west-2 )
+deploy-lab3-oregon: CORENETWORK_ARN = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkArn`].OutputValue' --output text --region us-west-2 )
+deploy-lab3-oregon:
+	aws cloudformation deploy --stack-name "$(WORKLOAD_STACK_NAME)" --template-file Workloads.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
+	aws cloudformation deploy --stack-name "$(INSPECTION_STACK_NAME)" --template-file Inspection.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
+	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region us-west-2
+
+deploy-lab3-stockholm: CORENETWORK_ID = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkId`].OutputValue' --output text --region us-west-2 )
+deploy-lab3-stockholm: CORENETWORK_ARN = $(shell aws cloudformation describe-stacks --stack-name "$(CLOUDWAN_STACK_NAME)" --query 'Stacks[0].Outputs[?OutputKey == `CoreNetworkArn`].OutputValue' --output text --region us-west-2 )
+deploy-lab3-stockholm:
+	aws cloudformation deploy --stack-name "$(WORKLOAD_STACK_NAME)" --template-file Workloads.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
+	aws cloudformation deploy --stack-name "$(INSPECTION_STACK_NAME)" --template-file Inspection.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
+	aws cloudformation deploy --stack-name "$(LEGACY_STACK_NAME)" --template-file Legacy.yaml --parameter-overrides CoreNetworkId="$(CORENETWORK_ID)" CoreNetworkArn="$(CORENETWORK_ARN)" Deployment="lab3" --capabilities CAPABILITY_IAM --no-fail-on-empty-changeset --region eu-north-1
 
 undeploy: undeploy-oregon undeploy-stockholm undeploy-onprem undeploy-cloudwan
 

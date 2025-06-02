@@ -36,10 +36,149 @@ Use `make undeploy` to clean-up the test environment and avoid undesired charges
 ### Lab 2 - Federate with AWS Transit Gateway
 
 1. If you want to follow the lab guide:
-  * Check point 2 above to uncomment the corresponding lines and do `make deploy-lab1` to build the initial environment.
+  * Check point 2 in [Lab 1](#lab-1---build-a-global-segmented-network-with-central-egress) to uncomment the corresponding lines and do `make deploy-lab1` to build the initial environment.
   * Follow [Step 6](https://catalog.workshops.aws/cloudwan/en-US/3-labs/lab1/step-6) in the workshop guide to configure the VPN connection.
 2. If you want to build the end architecture after finishing the steps:
   * Uncomment everything in `CoreNetwork.yaml`.
   * Execute `make deploy-lab2`.
+
+Use `make undeploy` to clean-up the test environment and avoid undesired charges.
+
+### Lab 3 - Additional inspection scenarios
+
+1. If you want to follow the lab guide, check point 2 in [Lab 2](#lab-2---federate-with-aws-transit-gateway) to uncomment the corresponding lines and do `make deploy-lab1` to build the initial environment.
+2. If you want to build the end architecture after finishing the steps:
+  * Update the Core Network definition in `CoreNetwork.yaml` with the code below.
+  * Execute `make deploy-lab3`.
+
+```yaml
+  CoreNetwork:
+    Type: AWS::NetworkManager::CoreNetwork
+    Properties:
+      Description: Core Network - AWS Cloud WAN workshop
+      GlobalNetworkId: !Ref GlobalNetwork
+      Tags: 
+        - Key: Name
+          Value: core-network-cwan-workshop
+      PolicyDocument:
+        version: "2021.12"
+        core-network-configuration:
+          vpn-ecmp-support: false
+          asn-ranges:
+            - 64520-65525
+          edge-locations:
+            - location: eu-north-1
+            - location: us-west-2
+        segments:
+          - name: prod
+            require-attachment-acceptance: false
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+          - name: thirdparty
+            isolate-attachments: true
+            require-attachment-acceptance: false
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+          - name: onpremises
+            require-attachment-acceptance: false
+          - name: legacy
+            require-attachment-acceptance: false
+            edge-locations:
+              - eu-north-1
+              - us-west-2
+        network-function-groups:
+          - name: EgressInspectionVpcs
+            require-attachment-acceptance: false
+          - name: InspectionVpcs
+            require-attachment-acceptance: false
+        attachment-policies:
+          - rule-number: 100
+            condition-logic: or
+            conditions:
+              - type: tag-value
+                operator: equals
+                key: nfg
+                value: inspection
+            action:
+              add-to-network-function-group: InspectionVpcs
+          - rule-number: 200
+            condition-logic: or
+            conditions:
+              - type: tag-value
+                operator: equals
+                key: nfg
+                value: egressinspection
+            action:
+              add-to-network-function-group: EgressInspectionVpcs
+          - rule-number: 300
+            condition-logic: or
+            conditions:
+              - type: tag-exists
+                key: domain
+            action:
+              association-method: tag
+              tag-value-of-key: domain
+          - rule-number: 400
+            condition-logic: or
+            conditions:
+              - type: attachment-type
+                operator: equals
+                value: transit-gateway-route-table
+            action:
+              association-method: constant
+              segment: legacy
+        segment-actions:
+          - action: send-to
+            segment: prod
+            via:
+              network-function-groups:
+                - EgressInspectionVpcs
+          - action: send-to
+            segment: thirdparty
+            via:
+              network-function-groups:
+                - EgressInspectionVpcs
+          - action: send-via
+            segment: thirdparty
+            mode: single-hop
+            when-sent-to:
+              segments:
+                - prod   
+            via:
+              network-function-groups:
+                - EgressInspectionVpcs
+          - action: send-via
+            segment: prod
+            mode: single-hop
+            when-sent-to:
+              segments:
+                - onpremises
+            via:
+              network-function-groups:
+                - EgressInspectionVpcs
+              with-edge-overrides:
+                - edge-sets:
+                    - - us-west-2
+                      - eu-north-1
+                  use-edge-location: eu-north-1
+          - action: send-via
+            segment: thirdparty
+            mode: single-hop
+            via:
+              network-function-groups:
+                - EgressInspectionVpcs
+              with-edge-overrides:
+                - edge-sets:
+                    - - us-west-2
+                      - eu-north-1
+                  use-edge-location: eu-north-1
+          - action: share
+            mode: attachment-route
+            segment: legacy
+            share-with:
+              - prod
+```
 
 Use `make undeploy` to clean-up the test environment and avoid undesired charges.

@@ -13,10 +13,14 @@ Parameters:
     Type: String
     Description: Workshop deployment phase
     Default: "initial"
-    AllowedValues: ["initial", "lab1", "lab2"]
+    AllowedValues: ["initial", "lab1", "lab2", "lab3"]
 
 Conditions:
-  DeployLab1: !Equals [!Ref Deployment, "lab1"]
+  Deploy: !Or 
+    - !Equals [!Ref Deployment, "lab1"]
+    - !Equals [!Ref Deployment, "lab2"]
+    - !Equals [!Ref Deployment, "lab3"]
+  DeployLab3: !Equals [!Ref Deployment, "lab3"]
 
 Mappings:
   EgressInspectionVpcCIDR:
@@ -598,7 +602,7 @@ Resources:
   # ---------- CLOUD WAN ATTACHMENT ----------
   # Egress VPC
   EgressInspectionCWANAttachment:
-    Condition: DeployLab1
+    Condition: Deploy
     Type: AWS::NetworkManager::VpcAttachment
     Properties:
       CoreNetworkId: !Ref CoreNetworkId
@@ -643,16 +647,26 @@ Resources:
         DependsOn: 
           - EgressInspectionCWANAttachment
         Type: AWS::EC2::Route
-        Condition: DeployLab1
+        Condition: Deploy
         Properties:
           RouteTableId: !Ref
             'Fn::Sub': 'EgressInspectionFirewallRouteTable${AvailabilityZone}'
           DestinationCidrBlock: '10.0.0.0/8'
           CoreNetworkArn: !Ref CoreNetworkArn
+      'EgressInspectionToCWANOnPrem${AvailabilityZone}':
+        DependsOn: 
+          - EgressInspectionCWANAttachment
+        Type: AWS::EC2::Route
+        Condition: DeployLab3
+        Properties:
+          RouteTableId: !Ref
+            'Fn::Sub': 'EgressInspectionFirewallRouteTable${AvailabilityZone}'
+          DestinationCidrBlock: '192.168.100.0/24'
+          CoreNetworkArn: !Ref CoreNetworkArn
   
   # Inspection VPC
   InspectionCWANAttachment:
-    Condition: DeployLab1
+    Condition: Deploy
     Type: AWS::NetworkManager::VpcAttachment
     Properties:
       CoreNetworkId: !Ref CoreNetworkId
@@ -697,7 +711,7 @@ Resources:
         DependsOn: 
           - InspectionCWANAttachment
         Type: AWS::EC2::Route
-        Condition: DeployLab1
+        Condition: Deploy
         Properties:
           RouteTableId: !Ref
             'Fn::Sub': 'InspectionFirewallRouteTable${AvailabilityZone}'

@@ -16,10 +16,13 @@ Parameters:
     Type: String
     Description: Workshop deployment phase
     Default: "initial"
-    AllowedValues: ["initial", "lab1", "lab2"]
+    AllowedValues: ["initial", "lab1", "lab2", "lab3"]
 
 Conditions:
-  DeployLab1: !Equals [!Ref Deployment, "lab1"]
+  Deploy: !Or 
+    - !Equals [!Ref Deployment, "lab1"]
+    - !Equals [!Ref Deployment, "lab2"]
+    - !Equals [!Ref Deployment, "lab3"]
 
 Mappings:
   ProdVpcCIDR:
@@ -330,7 +333,7 @@ Resources:
   # ---------- CLOUD WAN ATTACHMENTS ----------
   # Production VPC
   ProdCWANAttachment:
-    Condition: DeployLab1
+    Condition: Deploy
     Type: AWS::NetworkManager::VpcAttachment
     Properties:
       CoreNetworkId: !Ref CoreNetworkId
@@ -375,7 +378,7 @@ Resources:
         DependsOn: 
           - ProdCWANAttachment
         Type: AWS::EC2::Route
-        Condition: DeployLab1
+        Condition: Deploy
         Properties:
           RouteTableId: !Ref
             'Fn::Sub': 'ProductionPrivateRouteTable${AvailabilityZone}'
@@ -384,7 +387,7 @@ Resources:
 
   # Third-Party VPC
   ThirdPartyCWANAttachment:
-    Condition: DeployLab1
+    Condition: Deploy
     Type: AWS::NetworkManager::VpcAttachment
     Properties:
       CoreNetworkId: !Ref CoreNetworkId
@@ -429,7 +432,7 @@ Resources:
         DependsOn: 
           - ThirdPartyCWANAttachment
         Type: AWS::EC2::Route
-        Condition: DeployLab1
+        Condition: Deploy
         Properties:
           RouteTableId: !Ref
             'Fn::Sub': 'ThirdPartyPrivateRouteTable${AvailabilityZone}'

@@ -41,11 +41,11 @@ Resources:
               - us-west-2
           - name: onpremises
             require-attachment-acceptance: false
-        #   - name: legacy
-        #     require-attachment-acceptance: false
-        #     edge-locations:
-        #       - eu-north-1
-        #       - us-west-2
+          # - name: legacy
+          #   require-attachment-acceptance: false
+          #   edge-locations:
+          #     - eu-north-1
+          #     - us-west-2
         network-function-groups:
           - name: EgressInspectionVpcs
             require-attachment-acceptance: false

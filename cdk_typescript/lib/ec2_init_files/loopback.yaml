@@ -1,0 +1,8 @@
+network:
+  ethernets:
+    lo:
+      match:
+        name: lo
+      addresses:
+        - 192.168.100.53/24
+  version: 2

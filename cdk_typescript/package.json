@@ -1,0 +1,37 @@
+{
+  "name": "cloudwan-workshop-code",
+  "version": "0.1.0",
+  "bin": {
+    "cloudwan-workshop-code": "bin/cloudwan-workshop-code.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "deploy": "ts-node deploy.ts",
+    "destroy": "ts-node destroy.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.31.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "22.7.9",
+    "aws-cdk": "2.1021.0",
+    "eslint": "^9.31.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.3",
+    "globals": "^16.3.0",
+    "jest": "^29.7.0",
+    "jiti": "^2.5.1",
+    "prettier": "3.6.2",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.3",
+    "typescript-eslint": "^8.38.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.205.0",
+    "commander": "^14.0.0",
+    "constructs": "^10.0.0"
+  }
+}
